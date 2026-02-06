@@ -22,6 +22,8 @@ class PaymentBloc extends Bloc<PaymentEvent, PaymentState> {
     on<DevicesUpdatedEvent>(_onDevicesUpdated);
     on<StatusUpdatedEvent>(_onStatusUpdated);
     on<PaymentErrorEvent>(_onPaymentError);
+    on<ProcessPaymentEvent>(_onProcessPayment);
+    on<ClearTransactionEvent>(_onClearTransaction);
   }
 
   Future<void> _onInitialize(
@@ -73,7 +75,32 @@ class PaymentBloc extends Bloc<PaymentEvent, PaymentState> {
   }
 
   void _onPaymentError(PaymentErrorEvent event, Emitter<PaymentState> emit) {
-    emit(state.copyWith(errorMessage: event.error));
+    emit(state.copyWith(errorMessage: event.error, isProcessingPayment: false));
+  }
+
+  Future<void> _onProcessPayment(
+      ProcessPaymentEvent event, Emitter<PaymentState> emit) async {
+    emit(state.copyWith(isProcessingPayment: true, errorMessage: null, lastTransaction: null));
+    try {
+      final result = await _repository.processPayment(
+        amount: event.amount,
+        currency: event.currency,
+      );
+      emit(state.copyWith(
+        isProcessingPayment: false,
+        lastTransaction: result,
+      ));
+    } catch (e) {
+      emit(state.copyWith(
+        isProcessingPayment: false,
+        errorMessage: e.toString(),
+      ));
+    }
+  }
+
+  void _onClearTransaction(
+      ClearTransactionEvent event, Emitter<PaymentState> emit) {
+    emit(state.copyWith(lastTransaction: null)); // Helper to clear previous results
   }
 
   @override

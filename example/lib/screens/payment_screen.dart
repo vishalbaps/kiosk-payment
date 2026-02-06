@@ -1,28 +1,20 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:kiosk_payment/kiosk_payment.dart';
+import '../bloc/payment_bloc.dart';
+import '../bloc/payment_event.dart';
+import '../bloc/payment_state.dart';
 import '../widgets/build_card.dart';
 import '../widgets/gradient_button.dart';
 
 class PaymentScreen extends StatefulWidget {
-  final KioskPayment kioskPayment;
-  final PaymentDevice device;
-
-  const PaymentScreen({
-    super.key,
-    required this.kioskPayment,
-    required this.device,
-  });
+  const PaymentScreen({super.key});
 
   @override
   State<PaymentScreen> createState() => _PaymentScreenState();
 }
 
 class _PaymentScreenState extends State<PaymentScreen> {
-  DeviceStatus _deviceStatus = DeviceStatus.disconnected;
-  TransactionResult? _lastTransaction;
-  bool _isLoading = false;
-  String? _errorMessage;
-
   final TextEditingController _amountController =
       TextEditingController(text: '10.00');
   String _selectedCurrency = 'USD';
@@ -30,101 +22,35 @@ class _PaymentScreenState extends State<PaymentScreen> {
   @override
   void initState() {
     super.initState();
-    _setupListeners();
-    _connectToDevice();
-  }
-
-  void _setupListeners() {
-    widget.kioskPayment.deviceStatusStream.listen((status) {
-      if (mounted) {
-        setState(() {
-          _deviceStatus = status;
-        });
-      }
-    });
-
-    widget.kioskPayment.transactionStatusStream.listen((status) {
-      debugPrint('Transaction status: $status');
-    });
-  }
-
-  Future<void> _connectToDevice() async {
-    setState(() {
-      _isLoading = true;
-      _errorMessage = null;
-    });
-
-    try {
-      final success = await widget.kioskPayment.connect(deviceId: widget.device.id);
-      if (success) {
-        // Status update handled by stream
-      } else {
-        setState(() {
-           _errorMessage = 'Connection failed';
-        });
-      }
-    } catch (e) {
-      setState(() {
-        _errorMessage = 'Failed to connect: $e';
-      });
-    } finally {
-      setState(() {
-        _isLoading = false;
-      });
-    }
-  }
-
-  Future<void> _disconnect() async {
-     try {
-      await widget.kioskPayment.disconnect();
-    } catch (e) {
-      debugPrint("Error disconnecting: $e");
-    }
-  }
-
-  Future<void> _processPayment() async {
-    final amount = double.tryParse(_amountController.text);
-    if (amount == null || amount <= 0) {
-      setState(() {
-        _errorMessage = 'Please enter a valid amount';
-      });
-      return;
-    }
-
-    setState(() {
-      _isLoading = true;
-      _errorMessage = null;
-      _lastTransaction = null;
-    });
-
-    try {
-      final result = await widget.kioskPayment.processPayment(
-        amount: amount,
-        currency: _selectedCurrency,
-      );
-      setState(() {
-        _lastTransaction = result;
-      });
-    } catch (e) {
-      setState(() {
-        _errorMessage = 'Payment failed: $e';
-      });
-    } finally {
-      setState(() {
-        _isLoading = false;
-      });
-    }
+    // Auto-connect when entering the screen
+    context.read<PaymentBloc>().add(ConnectDeviceEvent());
+    // Clear previous transaction results
+    context.read<PaymentBloc>().add(ClearTransactionEvent());
   }
 
   @override
   void dispose() {
-    _disconnect(); // Disconnect when leaving this screen
     _amountController.dispose();
     super.dispose();
   }
 
-  Color _getStatusColor(ColorScheme colorScheme) {
-    switch (_deviceStatus) {
+  void _processPayment() {
+    final amount = double.tryParse(_amountController.text);
+    if (amount == null || amount <= 0) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please enter a valid amount')),
+      );
+      return;
+    }
+
+    context.read<PaymentBloc>().add(ProcessPaymentEvent(
+          amount: amount,
+          currency: _selectedCurrency,
+        ));
+  }
+
+  Color _getStatusColor(DeviceStatus status, ColorScheme colorScheme) {
+    switch (status) {
       case DeviceStatus.connected:
         return Colors.green;
       case DeviceStatus.connecting:
@@ -141,269 +67,317 @@ class _PaymentScreenState extends State<PaymentScreen> {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
 
-    return Scaffold(
-      appBar: AppBar(
-        title: Text(widget.device.name),
-        backgroundColor: colorScheme.surface,
-      ),
-      body: Container(
-        height: double.infinity,
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-            colors: [
-              colorScheme.surface,
-              colorScheme.surfaceContainerHighest,
-            ],
+    return PopScope(
+      onPopInvoked: (didPop) {
+        if (didPop) {
+          context.read<PaymentBloc>().add(DisconnectDeviceEvent());
+        }
+      },
+      child: Scaffold(
+        appBar: AppBar(
+          title: BlocBuilder<PaymentBloc, PaymentState>(
+            builder: (context, state) {
+              return Text(state.selectedDevice?.name ?? 'Device Payment');
+            },
           ),
+          backgroundColor: colorScheme.surface,
         ),
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.all(16),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              // Connection Status
-              BuildCard(
-                child: Padding(
-                  padding: const EdgeInsets.all(16),
-                  child: Row(
-                    children: [
-                      Icon(
-                        _deviceStatus == DeviceStatus.connected
-                            ? Icons.bluetooth_connected
-                            : Icons.bluetooth_disabled,
-                        color: _deviceStatus == DeviceStatus.connected
-                            ? Colors.green
-                            : colorScheme.outline,
-                      ),
-                      const SizedBox(width: 12),
-                      Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            'Status',
-                            style: theme.textTheme.titleSmall,
-                          ),
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 8,
-                              vertical: 4,
-                            ),
-                            decoration: BoxDecoration(
-                              color: _getStatusColor(colorScheme),
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                            child: Text(
-                              _deviceStatus.name.toUpperCase(),
-                              style: TextStyle(
-                                color: _deviceStatus == DeviceStatus.connected
-                                    ? Colors.white
-                                    : colorScheme.onSurfaceVariant,
-                                fontWeight: FontWeight.bold,
-                                fontSize: 10,
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-              const SizedBox(height: 16),
-
-              // Error Message
-              if (_errorMessage != null)
-                Padding(
-                  padding: const EdgeInsets.only(bottom: 16),
-                  child: BuildCard(
-                    color: colorScheme.errorContainer,
-                    child: Padding(
-                      padding: const EdgeInsets.all(16),
-                      child: Row(
-                        children: [
-                          Icon(Icons.error_outline, color: colorScheme.error),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            child: Text(
-                              _errorMessage!,
-                              style: TextStyle(color: colorScheme.error),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                ),
-
-              // Payment Form
-              if (_deviceStatus == DeviceStatus.connected)
-                BuildCard(
-                  child: Padding(
-                    padding: const EdgeInsets.all(16),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'Make Payment',
-                          style: theme.textTheme.titleMedium?.copyWith(
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                        const SizedBox(height: 16),
-                        Row(
+        body: Container(
+          height: double.infinity,
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: [
+                colorScheme.surface,
+                colorScheme.surfaceContainerHighest,
+              ],
+            ),
+          ),
+          child: BlocConsumer<PaymentBloc, PaymentState>(
+            listener: (context, state) {
+              if (state.errorMessage != null && !state.isProcessingPayment) {
+                // Show errors not related to payment processing immediately
+                // Or maybe all errors?
+              }
+            },
+            builder: (context, state) {
+              return SingleChildScrollView(
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    // Connection Status
+                    BuildCard(
+                      child: Padding(
+                        padding: const EdgeInsets.all(16),
+                        child: Row(
                           children: [
-                            Expanded(
-                              flex: 2,
-                              child: TextField(
-                                controller: _amountController,
-                                keyboardType:
-                                    const TextInputType.numberWithOptions(
-                                        decimal: true),
-                                decoration: InputDecoration(
-                                  labelText: 'Amount',
-                                  prefixIcon: const Icon(Icons.attach_money),
-                                  border: OutlineInputBorder(
-                                    borderRadius: BorderRadius.circular(12),
-                                  ),
-                                  filled: true,
-                                  fillColor: colorScheme.surfaceContainerHighest
-                                      .withOpacity(0.5),
-                                ),
-                              ),
+                            Icon(
+                              state.connectionStatus == DeviceStatus.connected
+                                  ? Icons.bluetooth_connected
+                                  : Icons.bluetooth_disabled,
+                              color: state.connectionStatus == DeviceStatus.connected
+                                  ? Colors.green
+                                  : colorScheme.outline,
                             ),
                             const SizedBox(width: 12),
-                            Expanded(
-                              child: DropdownButtonFormField<String>(
-                                value: _selectedCurrency,
-                                decoration: InputDecoration(
-                                  labelText: 'Currency',
-                                  border: OutlineInputBorder(
+                            Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  'Status',
+                                  style: theme.textTheme.titleSmall,
+                                ),
+                                Container(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 8,
+                                    vertical: 4,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: _getStatusColor(
+                                        state.connectionStatus, colorScheme),
                                     borderRadius: BorderRadius.circular(12),
                                   ),
-                                  filled: true,
-                                  fillColor: colorScheme.surfaceContainerHighest
-                                      .withOpacity(0.5),
+                                  child: Text(
+                                    state.connectionStatus.name.toUpperCase(),
+                                    style: TextStyle(
+                                      color: state.connectionStatus ==
+                                              DeviceStatus.connected
+                                          ? Colors.white
+                                          : colorScheme.onSurfaceVariant,
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 10,
+                                    ),
+                                  ),
                                 ),
-                                items: ['USD', 'EUR', 'GBP', 'INR']
-                                    .map((c) => DropdownMenuItem(
-                                        value: c, child: Text(c)))
-                                    .toList(),
-                                onChanged: (value) {
-                                  if (value != null) {
-                                    setState(() {
-                                      _selectedCurrency = value;
-                                    });
-                                  }
-                                },
-                              ),
+                              ],
                             ),
                           ],
                         ),
-                        const SizedBox(height: 20),
-                        SizedBox(
-                          width: double.infinity,
-                          height: 56,
-                          child: GradientButton(
-                            onPressed: _isLoading ? null : _processPayment,
-                            icon: Icons.credit_card,
-                            label: 'Process Payment',
-                            colors: [
-                              const Color(0xFF10B981), // Emerald
-                              const Color(0xFF059669),
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+
+                    // Error Message
+                    if (state.errorMessage != null)
+                      Padding(
+                        padding: const EdgeInsets.only(bottom: 16),
+                        child: BuildCard(
+                          color: colorScheme.errorContainer,
+                          child: Padding(
+                            padding: const EdgeInsets.all(16),
+                            child: Row(
+                              children: [
+                                Icon(Icons.error_outline,
+                                    color: colorScheme.error),
+                                const SizedBox(width: 12),
+                                Expanded(
+                                  child: Text(
+                                    state.errorMessage!,
+                                    style: TextStyle(color: colorScheme.error),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ),
+
+                    // Payment Form
+                    if (state.connectionStatus == DeviceStatus.connected)
+                      BuildCard(
+                        child: Padding(
+                          padding: const EdgeInsets.all(16),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'Make Payment',
+                                style: theme.textTheme.titleMedium?.copyWith(
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                              const SizedBox(height: 16),
+                              Row(
+                                children: [
+                                  Expanded(
+                                    flex: 2,
+                                    child: TextField(
+                                      controller: _amountController,
+                                      keyboardType:
+                                          const TextInputType.numberWithOptions(
+                                              decimal: true),
+                                      decoration: InputDecoration(
+                                        labelText: 'Amount',
+                                        prefixIcon:
+                                            const Icon(Icons.attach_money),
+                                        border: OutlineInputBorder(
+                                          borderRadius:
+                                              BorderRadius.circular(12),
+                                        ),
+                                        filled: true,
+                                        fillColor: colorScheme
+                                            .surfaceContainerHighest
+                                            .withOpacity(0.5),
+                                      ),
+                                    ),
+                                  ),
+                                  const SizedBox(width: 12),
+                                  Expanded(
+                                    child: DropdownButtonFormField<String>(
+                                      value: _selectedCurrency,
+                                      decoration: InputDecoration(
+                                        labelText: 'Currency',
+                                        border: OutlineInputBorder(
+                                          borderRadius:
+                                              BorderRadius.circular(12),
+                                        ),
+                                        filled: true,
+                                        fillColor: colorScheme
+                                            .surfaceContainerHighest
+                                            .withOpacity(0.5),
+                                      ),
+                                      items: ['USD', 'EUR', 'GBP', 'INR']
+                                          .map((c) => DropdownMenuItem(
+                                              value: c, child: Text(c)))
+                                          .toList(),
+                                      onChanged: (value) {
+                                        if (value != null) {
+                                          setState(() {
+                                            _selectedCurrency = value;
+                                          });
+                                        }
+                                      },
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 20),
+                              SizedBox(
+                                width: double.infinity,
+                                height: 56,
+                                child: GradientButton(
+                                  onPressed: state.isProcessingPayment
+                                      ? null
+                                      : _processPayment,
+                                  icon: Icons.credit_card,
+                                  label: state.isProcessingPayment
+                                      ? 'Processing...'
+                                      : 'Process Payment',
+                                  colors: [
+                                    const Color(0xFF10B981), // Emerald
+                                    const Color(0xFF059669),
+                                  ],
+                                ),
+                              ),
                             ],
                           ),
                         ),
-                      ],
-                    ),
-                  ),
-                ),
+                      ),
 
-              const SizedBox(height: 16),
+                    const SizedBox(height: 16),
 
-              // Transaction Result
-              if (_lastTransaction != null)
-                BuildCard(
-                  color: _lastTransaction!.isSuccess
-                      ? Colors.green.withOpacity(0.1)
-                      : colorScheme.errorContainer,
-                  child: Padding(
-                    padding: const EdgeInsets.all(16),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
-                          children: [
-                            Icon(
-                              _lastTransaction!.isSuccess
-                                  ? Icons.check_circle
-                                  : Icons.error,
-                              color: _lastTransaction!.isSuccess
-                                  ? Colors.green
-                                  : colorScheme.error,
-                              size: 32,
-                            ),
-                            const SizedBox(width: 12),
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
+                    // Transaction Result
+                    if (state.lastTransaction != null)
+                      BuildCard(
+                        color: state.lastTransaction!.isSuccess
+                            ? Colors.green.withOpacity(0.1)
+                            : colorScheme.errorContainer,
+                        child: Padding(
+                          padding: const EdgeInsets.all(16),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Row(
                                 children: [
-                                  Text(
-                                    _lastTransaction!.isSuccess
-                                        ? 'Payment Successful'
-                                        : 'Payment Failed',
-                                    style:
-                                        theme.textTheme.titleMedium?.copyWith(
-                                      fontWeight: FontWeight.w600,
-                                      color: _lastTransaction!.isSuccess
-                                          ? Colors.green
-                                          : colorScheme.error,
+                                  Icon(
+                                    state.lastTransaction!.isSuccess
+                                        ? Icons.check_circle
+                                        : Icons.error,
+                                    color: state.lastTransaction!.isSuccess
+                                        ? Colors.green
+                                        : colorScheme.error,
+                                    size: 32,
+                                  ),
+                                  const SizedBox(width: 12),
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
+                                        Text(
+                                          state.lastTransaction!.isSuccess
+                                              ? 'Payment Successful'
+                                              : 'Payment Failed',
+                                          style: theme.textTheme.titleMedium
+                                              ?.copyWith(
+                                            fontWeight: FontWeight.w600,
+                                            color: state.lastTransaction!
+                                                    .isSuccess
+                                                ? Colors.green
+                                                : colorScheme.error,
+                                          ),
+                                        ),
+                                        if (state.lastTransaction!
+                                                .transactionId !=
+                                            null)
+                                          Text(
+                                            'ID: ${state.lastTransaction!.transactionId}',
+                                            style: theme.textTheme.bodySmall,
+                                          ),
+                                      ],
                                     ),
                                   ),
-                                  if (_lastTransaction!.transactionId != null)
-                                    Text(
-                                      'ID: ${_lastTransaction!.transactionId}',
-                                      style: theme.textTheme.bodySmall,
-                                    ),
                                 ],
                               ),
-                            ),
-                          ],
-                        ),
-                        if (_lastTransaction!.isSuccess) ...[
-                          const SizedBox(height: 16),
-                          const Divider(),
-                          const SizedBox(height: 16),
-                          _buildTransactionDetail(
-                              context, 'Card Type', _lastTransaction!.cardType ?? 'N/A'),
-                          _buildTransactionDetail(context, 'Card Number',
-                              _lastTransaction!.maskedCardNumber ?? 'N/A'),
-                          _buildTransactionDetail(context, 'Amount',
-                              '${_lastTransaction!.amount} ${_lastTransaction!.currency}'),
-                          _buildTransactionDetail(context, 'Auth Code',
-                              _lastTransaction!.authorizationCode ?? 'N/A'),
-                        ],
-                        if (_lastTransaction!.errorMessage != null)
-                          Padding(
-                            padding: const EdgeInsets.only(top: 12),
-                            child: Text(
-                              'Error: ${_lastTransaction!.errorMessage}',
-                              style: TextStyle(color: colorScheme.error),
-                            ),
+                              if (state.lastTransaction!.isSuccess) ...[
+                                const SizedBox(height: 16),
+                                const Divider(),
+                                const SizedBox(height: 16),
+                                _buildTransactionDetail(
+                                    context,
+                                    'Card Type',
+                                    state.lastTransaction!.cardType ?? 'N/A'),
+                                _buildTransactionDetail(
+                                    context,
+                                    'Card Number',
+                                    state.lastTransaction!.maskedCardNumber ??
+                                        'N/A'),
+                                _buildTransactionDetail(
+                                    context,
+                                    'Amount',
+                                    '${state.lastTransaction!.amount} ${state.lastTransaction!.currency}'),
+                                _buildTransactionDetail(
+                                    context,
+                                    'Auth Code',
+                                    state.lastTransaction!.authorizationCode ??
+                                        'N/A'),
+                              ],
+                              if (state.lastTransaction!.errorMessage != null)
+                                Padding(
+                                  padding: const EdgeInsets.only(top: 12),
+                                  child: Text(
+                                    'Error: ${state.lastTransaction!.errorMessage}',
+                                    style: TextStyle(color: colorScheme.error),
+                                  ),
+                                ),
+                            ],
                           ),
-                      ],
-                    ),
-                  ),
+                        ),
+                      ),
+                  ],
                 ),
-            ],
+              );
+            },
           ),
         ),
       ),
     );
   }
 
-  Widget _buildTransactionDetail(BuildContext context, String label, String value) {
+  Widget _buildTransactionDetail(
+      BuildContext context, String label, String value) {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 4),
       child: Row(

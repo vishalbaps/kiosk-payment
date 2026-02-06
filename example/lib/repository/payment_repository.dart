@@ -24,6 +24,13 @@ class PaymentRepository {
     await _kioskPayment.connectDevice();
   }
 
+  Future<TransactionResult> processPayment({
+    required double amount,
+    required String currency,
+  }) async {
+    return await _kioskPayment.processPayment(amount: amount, currency: currency);
+  }
+
   Future<void> disconnect() async {
     await _kioskPayment.disconnect();
   }

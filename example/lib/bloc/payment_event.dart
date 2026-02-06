@@ -49,3 +49,15 @@ class PaymentErrorEvent extends PaymentEvent {
   @override
   List<Object> get props => [error];
 }
+
+class ProcessPaymentEvent extends PaymentEvent {
+  final double amount;
+  final String currency;
+
+  const ProcessPaymentEvent({required this.amount, required this.currency});
+
+  @override
+  List<Object> get props => [amount, currency];
+}
+
+class ClearTransactionEvent extends PaymentEvent {}

@@ -14,19 +14,19 @@ class MyApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
-      title: 'Kiosk Payment Example',
-      theme: ThemeData(
-        primarySwatch: Colors.blue,
-        useMaterial3: true,
-      ),
-      home: RepositoryProvider(
-        create: (context) => PaymentRepository(),
-        child: BlocProvider(
-          create: (context) => PaymentBloc(
-            repository: context.read<PaymentRepository>(),
-          )..add(InitializeEvent()),
-          child: const HomeScreen(),
+    return RepositoryProvider(
+      create: (context) => PaymentRepository(),
+      child: BlocProvider(
+        create: (context) => PaymentBloc(
+          repository: context.read<PaymentRepository>(),
+        )..add(InitializeEvent()),
+        child: MaterialApp(
+          title: 'Kiosk Payment Example',
+          theme: ThemeData(
+            primarySwatch: Colors.blue,
+            useMaterial3: true,
+          ),
+          home: const HomeScreen(),
         ),
       ),
     );

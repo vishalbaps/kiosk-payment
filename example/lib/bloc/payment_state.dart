@@ -7,6 +7,8 @@ class PaymentState extends Equatable {
   final DeviceStatus connectionStatus;
   final String? errorMessage;
   final bool isScanning;
+  final bool isProcessingPayment;
+  final TransactionResult? lastTransaction;
 
   const PaymentState({
     this.devices = const [],
@@ -14,6 +16,8 @@ class PaymentState extends Equatable {
     this.connectionStatus = DeviceStatus.disconnected,
     this.errorMessage,
     this.isScanning = false,
+    this.isProcessingPayment = false,
+    this.lastTransaction,
   });
 
   PaymentState copyWith({
@@ -22,6 +26,8 @@ class PaymentState extends Equatable {
     DeviceStatus? connectionStatus,
     String? errorMessage,
     bool? isScanning,
+    bool? isProcessingPayment,
+    TransactionResult? lastTransaction,
   }) {
     return PaymentState(
       devices: devices ?? this.devices,
@@ -29,10 +35,19 @@ class PaymentState extends Equatable {
       connectionStatus: connectionStatus ?? this.connectionStatus,
       errorMessage: errorMessage,
       isScanning: isScanning ?? this.isScanning,
+      isProcessingPayment: isProcessingPayment ?? this.isProcessingPayment,
+      lastTransaction: lastTransaction ?? this.lastTransaction,
     );
   }
 
   @override
-  List<Object?> get props =>
-      [devices, selectedDevice, connectionStatus, errorMessage, isScanning];
+  List<Object?> get props => [
+        devices,
+        selectedDevice,
+        connectionStatus,
+        errorMessage,
+        isScanning,
+        isProcessingPayment,
+        lastTransaction,
+      ];
 }

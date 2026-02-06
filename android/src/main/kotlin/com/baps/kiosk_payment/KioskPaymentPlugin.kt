@@ -4,8 +4,11 @@ import androidx.annotation.NonNull
 import io.flutter.embedding.engine.plugins.FlutterPlugin
 import io.flutter.embedding.engine.plugins.activity.ActivityAware
 import io.flutter.embedding.engine.plugins.activity.ActivityPluginBinding
-import io.flutter.plugin.common.*
+import io.flutter.plugin.common.MethodCall
+import io.flutter.plugin.common.MethodChannel
+import io.flutter.plugin.common.MethodChannel.MethodCallHandler
 import io.flutter.plugin.common.MethodChannel.Result
+import io.flutter.plugin.common.EventChannel
 import android.app.Activity
 import android.content.Context
 import android.bluetooth.BluetoothDevice
@@ -13,7 +16,6 @@ import com.bolt.consumersdk.*
 import com.bolt.consumersdk.domain.*
 import com.bolt.consumersdk.swiper.*
 import com.bolt.consumersdk.swiper.enums.*
-import com.bolt.consumersdk.swiper.listeners.*
 import com.bolt.consumersdk.listeners.BluetoothSearchResponseListener
 import java.math.BigDecimal
 
