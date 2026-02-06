@@ -1,0 +1,27 @@
+name: kiosk_payment
+description: A Flutter plugin for kiosk payment device integration. Provides a clean abstraction for payment device discovery, connection, and transaction processing.
+version: 0.0.1
+homepage: https://github.com/baps/kiosk-payment
+
+environment:
+  sdk: '>=3.0.0 <4.0.0'
+  flutter: '>=3.3.0'
+
+dependencies:
+  flutter:
+    sdk: flutter
+  plugin_platform_interface: ^2.1.0
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^3.0.0
+
+flutter:
+  plugin:
+    platforms:
+      android:
+        package: com.baps.kiosk_payment
+        pluginClass: KioskPaymentPlugin
+      ios:
+        pluginClass: KioskPaymentPlugin

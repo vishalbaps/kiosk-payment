@@ -1,0 +1,78 @@
+import 'kiosk_payment_platform_interface.dart';
+import 'models/payment_device.dart';
+import 'models/device_status.dart';
+import 'models/transaction_result.dart';
+
+class KioskPayment {
+  /// The singleton instance
+  static final KioskPayment _instance = KioskPayment._internal();
+
+  factory KioskPayment() => _instance;
+
+  KioskPayment._internal();
+
+  KioskPaymentPlatform get _platform => KioskPaymentPlatform.instance;
+
+  Future<String?> getPlatformVersion() {
+    return _platform.getPlatformVersion();
+  }
+
+  /// Initialize the payment SDK
+  Future<void> initialize({
+    required String endpoint,
+    required String merchantId,
+    bool enableLogging = true,
+  }) {
+    return _platform.initialize(
+      endpoint: endpoint,
+      merchantId: merchantId,
+      enableLogging: enableLogging,
+    );
+  }
+
+  Future<List<PaymentDevice>> discoverDevices() {
+    return _platform.discoverDevices();
+  }
+
+  /// Start searching for devices. Listen to [foundDevicesStream].
+  Future<void> searchDevices() {
+    return _platform.findDevices();
+  }
+
+  /// Select and configure a device before connecting
+  Future<void> selectDevice(PaymentDevice device) {
+    return _platform.configureDevice(device);
+  }
+
+  Future<bool> connect({required String deviceId}) {
+    return _platform.connect(deviceId: deviceId);
+  }
+
+  /// Connect to the configured device
+  Future<void> connectDevice() {
+    return _platform.connectReader();
+  }
+
+  Future<TransactionResult> processPayment(
+      {required double amount, required String currency}) {
+    return _platform.processPayment(amount: amount, currency: currency);
+  }
+
+  /// Disconnect the current device
+  Future<void> disconnect() {
+    return _platform.disconnect();
+  }
+
+  /// Stream of discovered devices
+  Stream<List<PaymentDevice>> get foundDevicesStream =>
+      _platform.foundDevicesStream;
+
+  /// Stream of connection status
+  Stream<DeviceStatus> get deviceStatusStream => _platform.deviceStatusStream;
+
+  Stream<String> get transactionStatusStream =>
+      _platform.transactionStatusStream;
+
+  /// Stream of errors
+  Stream<String> get errorStream => _platform.errorStream;
+}
