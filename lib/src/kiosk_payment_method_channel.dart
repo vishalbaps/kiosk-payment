@@ -8,6 +8,7 @@ import 'kiosk_payment_platform_interface.dart';
 import 'models/payment_device.dart';
 import 'models/device_status.dart';
 import 'models/transaction_result.dart';
+import 'models/swipe_mode.dart';
 
 /// An implementation of [KioskPaymentPlatform] that uses method channels.
 class MethodChannelKioskPayment extends KioskPaymentPlatform {
@@ -25,7 +26,6 @@ class MethodChannelKioskPayment extends KioskPaymentPlatform {
   Stream<List<PaymentDevice>>? _foundDevicesStream;
   Stream<DeviceStatus>? _deviceStatusStream;
   Stream<String>? _errorStream;
-  Stream<String>? _transactionStatusStream;
 
   @override
   Future<String?> getPlatformVersion() async {
@@ -38,14 +38,15 @@ class MethodChannelKioskPayment extends KioskPaymentPlatform {
     required String endpoint,
     required String merchantId,
     bool enableLogging = true,
+    SwipeMode swipeMode = SwipeMode.swipeDipTap,
   }) async {
     final Map<String, dynamic> args = {
-      "endpoint": endpoint,
-      "enableLogging": enableLogging,
-      "merchantID": merchantId,
-      "cardReadTimeout": 250,
-      "swipeMode": 1,
-      "disableBeepSound": false
+      'endpoint': endpoint,
+      'enableLogging': enableLogging,
+      'merchantID': merchantId,
+      'cardReadTimeout': 250,
+      'swipeMode': swipeMode.value,
+      'disableBeepSound': false
     };
     await methodChannel.invokeMethod(kMethodInitializeSwiper, args);
   }
@@ -79,7 +80,7 @@ class MethodChannelKioskPayment extends KioskPaymentPlatform {
 
   @override
   Future<void> configureDevice(PaymentDevice device) async {
-    final Map<String, String> args = {"id": device.id};
+    final Map<String, String> args = {'id': device.id};
     await methodChannel.invokeMethod(kMethodConfigureSwipeDevice, args);
   }
 
@@ -90,7 +91,7 @@ class MethodChannelKioskPayment extends KioskPaymentPlatform {
 
   @override
   Future<bool> connect({required String deviceId}) async {
-    final Map<String, String> args = {"id": deviceId};
+    final Map<String, String> args = {'id': deviceId};
     final configured = await methodChannel.invokeMethod<bool>(
             kMethodConfigureSwipeDevice, args) ??
         false;
@@ -113,11 +114,11 @@ class MethodChannelKioskPayment extends KioskPaymentPlatform {
     // Simulate payment processing for now as specific backend logic isn't defined
     return Future.delayed(const Duration(seconds: 2), () {
       return TransactionResult.success(
-          transactionId: "TXN-${DateTime.now().millisecondsSinceEpoch}",
+          transactionId: 'TXN-${DateTime.now().millisecondsSinceEpoch}',
           amount: amount,
           currency: currency,
-          cardType: "Visa",
-          maskedCardNumber: "**** 1234");
+          cardType: 'Visa',
+          maskedCardNumber: '**** 1234');
     });
   }
 

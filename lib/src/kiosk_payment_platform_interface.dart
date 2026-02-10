@@ -4,6 +4,7 @@ import 'kiosk_payment_method_channel.dart';
 import 'models/payment_device.dart';
 import 'models/device_status.dart';
 import 'models/transaction_result.dart';
+import 'models/swipe_mode.dart';
 
 abstract class KioskPaymentPlatform extends PlatformInterface {
   /// Constructs a KioskPaymentPlatform.
@@ -34,6 +35,7 @@ abstract class KioskPaymentPlatform extends PlatformInterface {
     required String endpoint,
     required String merchantId,
     bool enableLogging = true,
+    SwipeMode swipeMode = SwipeMode.swipeDipTap,
   });
 
   Future<List<PaymentDevice>> discoverDevices() {

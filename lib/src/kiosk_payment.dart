@@ -2,14 +2,15 @@ import 'kiosk_payment_platform_interface.dart';
 import 'models/payment_device.dart';
 import 'models/device_status.dart';
 import 'models/transaction_result.dart';
+import 'models/swipe_mode.dart';
 
 class KioskPayment {
-  /// The singleton instance
-  static final KioskPayment _instance = KioskPayment._internal();
-
   factory KioskPayment() => _instance;
 
   KioskPayment._internal();
+
+  /// The singleton instance
+  static final KioskPayment _instance = KioskPayment._internal();
 
   KioskPaymentPlatform get _platform => KioskPaymentPlatform.instance;
 
@@ -22,11 +23,13 @@ class KioskPayment {
     required String endpoint,
     required String merchantId,
     bool enableLogging = true,
+    SwipeMode swipeMode = SwipeMode.swipeDipTap,
   }) {
     return _platform.initialize(
       endpoint: endpoint,
       merchantId: merchantId,
       enableLogging: enableLogging,
+      swipeMode: swipeMode,
     );
   }
 
