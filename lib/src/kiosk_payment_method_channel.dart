@@ -118,6 +118,12 @@ class MethodChannelKioskPayment extends KioskPaymentPlatform {
   }
 
   @override
+  Future<bool> cancelTransaction() async {
+    return await methodChannel.invokeMethod<bool>(kMethodCancelTransaction) ??
+        false;
+  }
+
+  @override
   Future<TransactionResult> processPayment(
       {required double amount, required String currency}) async {
     // Simulate payment processing for now as specific backend logic isn't defined

@@ -61,6 +61,10 @@ class KioskPayment {
     return _platform.restartReader();
   }
 
+  Future<bool> cancelTransaction() {
+    return _platform.cancelTransaction();
+  }
+
   Future<TransactionResult> processPayment(
       {required double amount, required String currency}) {
     return _platform.processPayment(amount: amount, currency: currency);

@@ -10,6 +10,7 @@ enum ChannelNameEnum {
     static let kMethodConnectReader = "kMethodConnectReader"
     static let kMethodRestartReader = "kMethodRestartReader"
     static let kMethodReleaseSwiperDevice = "kMethodReleaseSwiperDevice"
+    static let kMethodCancelTransaction = "kMethodCancelTransaction"
 
     static let kEventFindSwipeDevices = "kEventFindSwipeDevices"
     static let kEventDeviceStatus = "kEventDeviceStatus"
@@ -36,7 +37,6 @@ public class KioskPaymentPlugin: NSObject, FlutterPlugin, BMSSwiperControllerDel
     var swiper: BMSSwiperController?
     var foundDevices: [BMSDevice]?
     var tempDevice: BMSDevice?
-    var merchantID: String?
     var enableLogging: Bool = true
     var restartReaderBlock: (() -> ())? = nil
 
@@ -71,8 +71,11 @@ public class KioskPaymentPlugin: NSObject, FlutterPlugin, BMSSwiperControllerDel
         case ChannelNameEnum.kMethodRestartReader:
              result(restartReader())
 
-        case ChannelNameEnum.kMethodReleaseSwiperDevice:
-             result(releaseSwiperDevice())
+         case ChannelNameEnum.kMethodReleaseSwiperDevice:
+              result(releaseSwiperDevice())
+
+         case ChannelNameEnum.kMethodCancelTransaction:
+              result(cancelTransaction())
 
         default:
             result(FlutterMethodNotImplemented)
@@ -80,7 +83,7 @@ public class KioskPaymentPlugin: NSObject, FlutterPlugin, BMSSwiperControllerDel
     }
 
     func initializeSwiper(data: [String: Any]) -> Bool {
-        merchantID = (data["merchantID"] as? String) ?? ""
+
         enableLogging = (data["enableLogging"] as? Bool) ?? false
         // Basic init of API
         BMSAPI.instance().endpoint = (data["endpoint"] as? String) ?? "fts.cardconnect.com"
@@ -133,6 +136,14 @@ public class KioskPaymentPlugin: NSObject, FlutterPlugin, BMSSwiperControllerDel
         return false
     }
 
+    func cancelTransaction() -> Bool {
+        let deadlineTime = DispatchTime.now() + .seconds(1)
+        DispatchQueue.main.asyncAfter(deadline: deadlineTime) {
+            self.swiper?.cancelTransaction()
+        }
+        return true
+    }
+
     // MARK: - BMSSwiperControllerDelegate
     public func swiper(_ swiper: BMSSwiperController!, foundDevices devices: [Any]!) {
         self.foundDevices = devices as? [BMSDevice]
@@ -164,6 +175,7 @@ public class KioskPaymentPlugin: NSObject, FlutterPlugin, BMSSwiperControllerDel
     
     public func swiper(_ swiper: BMSSwiper, didFailWithError error: Error, completion: @escaping () -> Void) {
         self.restartReaderBlock = completion
+        print("errorrrrr--: \(error.localizedDescription ?? "")")
         let message = String(format: "An error occurred: %@", error.localizedDescription)
         if let sink = swiperDidFailWithErrorEventSink {
             sink(message)
@@ -177,9 +189,18 @@ public class KioskPaymentPlugin: NSObject, FlutterPlugin, BMSSwiperControllerDel
     }
     
     public func swiper(_ swiper: BMSSwiperController!, displayMessage message: String!, canCancel cancelable: Bool) {
-        NSLog("Swiper Display Message: %@", message ?? "nil")
+
+        print("displayMessage before: \(message ?? "")")
+        
+        var finalMessage = message
+        if let msg = message, let data = msg.data(using: .isoLatin1), let decoded = String(data: data, encoding: .utf8) {
+            finalMessage = decoded
+        }
+        
+        print("displayMessage after: \(finalMessage ?? "")")
+
         if let sink = displayMessageEventSink {
-            sink(message)
+            sink(finalMessage)
         }
     }
     

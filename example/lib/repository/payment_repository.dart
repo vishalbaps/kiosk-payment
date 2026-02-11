@@ -40,6 +40,10 @@ class PaymentRepository {
     return await _kioskPayment.restartReader();
   }
 
+  Future<bool> cancelTransaction() async {
+    return await _kioskPayment.cancelTransaction();
+  }
+
   Stream<List<PaymentDevice>> get foundDevices =>
       _kioskPayment.foundDevicesStream;
   Stream<DeviceStatus> get status => _kioskPayment.deviceStatusStream;

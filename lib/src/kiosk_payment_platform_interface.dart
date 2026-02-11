@@ -56,6 +56,10 @@ abstract class KioskPaymentPlatform extends PlatformInterface {
 
   Future<void> disconnect();
 
+  Future<bool> cancelTransaction() {
+    throw UnimplementedError('cancelTransaction() has not been implemented.');
+  }
+
   Future<TransactionResult> processPayment(
       {required double amount, required String currency}) {
     throw UnimplementedError('processPayment() has not been implemented.');
