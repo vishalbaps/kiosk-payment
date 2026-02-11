@@ -6,6 +6,7 @@ import '../bloc/payment_event.dart';
 import '../bloc/payment_state.dart';
 import '../widgets/build_card.dart';
 import '../widgets/gradient_button.dart';
+import 'card_interaction_screen.dart';
 
 class PaymentScreen extends StatefulWidget {
   const PaymentScreen({super.key});
@@ -15,9 +16,9 @@ class PaymentScreen extends StatefulWidget {
 }
 
 class _PaymentScreenState extends State<PaymentScreen> {
-  final TextEditingController _amountController =
-      TextEditingController(text: '10.00');
+  final TextEditingController _amountController = TextEditingController(text: '10.00');
   String _selectedCurrency = 'USD';
+  int? _selectedAmount;
 
   @override
   void initState() {
@@ -116,20 +117,17 @@ class _PaymentScreenState extends State<PaymentScreen> {
                             Row(
                               children: [
                                 Icon(
-                                  state.connectionStatus ==
-                                          DeviceStatus.connected
+                                  state.connectionStatus == DeviceStatus.connected
                                       ? Icons.bluetooth_connected
                                       : Icons.bluetooth_disabled,
-                                  color: state.connectionStatus ==
-                                          DeviceStatus.connected
+                                  color: state.connectionStatus == DeviceStatus.connected
                                       ? Colors.green
                                       : colorScheme.outline,
                                 ),
                                 const SizedBox(width: 12),
                                 Expanded(
                                   child: Column(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.start,
+                                    crossAxisAlignment: CrossAxisAlignment.start,
                                     children: [
                                       Text(
                                         'Status',
@@ -141,18 +139,13 @@ class _PaymentScreenState extends State<PaymentScreen> {
                                           vertical: 4,
                                         ),
                                         decoration: BoxDecoration(
-                                          color: _getStatusColor(
-                                              state.connectionStatus,
-                                              colorScheme),
-                                          borderRadius:
-                                              BorderRadius.circular(12),
+                                          color: _getStatusColor(state.connectionStatus, colorScheme),
+                                          borderRadius: BorderRadius.circular(12),
                                         ),
                                         child: Text(
-                                          state.connectionStatus.name
-                                              .toUpperCase(),
+                                          state.connectionStatus.name.toUpperCase(),
                                           style: TextStyle(
-                                            color: state.connectionStatus ==
-                                                    DeviceStatus.connected
+                                            color: state.connectionStatus == DeviceStatus.connected
                                                 ? Colors.white
                                                 : colorScheme.onSurfaceVariant,
                                             fontWeight: FontWeight.bold,
@@ -163,21 +156,16 @@ class _PaymentScreenState extends State<PaymentScreen> {
                                     ],
                                   ),
                                 ),
-                                if (state.connectionStatus ==
-                                    DeviceStatus.connected)
+                                if (state.connectionStatus == DeviceStatus.connected)
                                   ElevatedButton.icon(
                                     onPressed: () {
-                                      context
-                                          .read<PaymentBloc>()
-                                          .add(RestartReaderEvent());
+                                      context.read<PaymentBloc>().add(RestartReaderEvent());
                                     },
                                     icon: const Icon(Icons.refresh, size: 18),
                                     label: const Text('Restart Reader'),
                                     style: ElevatedButton.styleFrom(
-                                      backgroundColor:
-                                          colorScheme.primaryContainer,
-                                      foregroundColor:
-                                          colorScheme.onPrimaryContainer,
+                                      backgroundColor: colorScheme.primaryContainer,
+                                      foregroundColor: colorScheme.onPrimaryContainer,
                                     ),
                                   ),
                               ],
@@ -189,8 +177,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
                     const SizedBox(height: 16),
 
                     // Display Message from Device
-                    if (state.displayMessage != null &&
-                        state.displayMessage!.isNotEmpty)
+                    if (state.displayMessage != null && state.displayMessage!.isNotEmpty)
                       Padding(
                         padding: const EdgeInsets.only(bottom: 16),
                         child: BuildCard(
@@ -199,8 +186,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
                             padding: const EdgeInsets.all(16),
                             child: Row(
                               children: [
-                                Icon(Icons.info_outline,
-                                    color: colorScheme.primary),
+                                Icon(Icons.info_outline, color: colorScheme.primary),
                                 const SizedBox(width: 12),
                                 Expanded(
                                   child: Text(
@@ -227,8 +213,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
                             padding: const EdgeInsets.all(16),
                             child: Row(
                               children: [
-                                Icon(Icons.error_outline,
-                                    color: colorScheme.error),
+                                Icon(Icons.error_outline, color: colorScheme.error),
                                 const SizedBox(width: 12),
                                 Expanded(
                                   child: Text(
@@ -260,75 +245,94 @@ class _PaymentScreenState extends State<PaymentScreen> {
                               Row(
                                 children: [
                                   Expanded(
-                                    flex: 2,
-                                    child: TextField(
-                                      controller: _amountController,
-                                      keyboardType:
-                                          const TextInputType.numberWithOptions(
-                                              decimal: true),
-                                      decoration: InputDecoration(
-                                        labelText: 'Amount',
-                                        prefixIcon:
-                                            const Icon(Icons.attach_money),
-                                        border: OutlineInputBorder(
-                                          borderRadius:
-                                              BorderRadius.circular(12),
+                                    child: GestureDetector(
+                                      onTap: () {
+                                        setState(() {
+                                          _selectedAmount = 2;
+                                        });
+                                        Navigator.of(context).push(
+                                          MaterialPageRoute(
+                                            builder: (context) => const CardInteractionScreen(amount: 2),
+                                          ),
+                                        );
+                                      },
+                                      child: Card(
+                                        shape: RoundedRectangleBorder(
+                                          borderRadius: BorderRadius.circular(12),
+                                          side: BorderSide(
+                                            color: _selectedAmount == 2
+                                                ? Theme.of(context).colorScheme.primary
+                                                : Colors.transparent,
+                                            width: 2,
+                                          ),
                                         ),
-                                        filled: true,
-                                        fillColor: colorScheme
-                                            .surfaceContainerHighest
-                                            .withOpacity(0.5),
+                                        child: Container(
+                                          padding: const EdgeInsets.symmetric(vertical: 20),
+                                          alignment: Alignment.center,
+                                          child: const Text(
+                                            '\$2',
+                                            style: TextStyle(
+                                              fontSize: 18,
+                                              fontWeight: FontWeight.bold,
+                                            ),
+                                          ),
+                                        ),
                                       ),
                                     ),
                                   ),
                                   const SizedBox(width: 12),
                                   Expanded(
-                                    child: DropdownButtonFormField<String>(
-                                      value: _selectedCurrency,
-                                      decoration: InputDecoration(
-                                        labelText: 'Currency',
-                                        border: OutlineInputBorder(
-                                          borderRadius:
-                                              BorderRadius.circular(12),
-                                        ),
-                                        filled: true,
-                                        fillColor: colorScheme
-                                            .surfaceContainerHighest
-                                            .withOpacity(0.5),
-                                      ),
-                                      items: ['USD', 'EUR', 'GBP', 'INR']
-                                          .map((c) => DropdownMenuItem(
-                                              value: c, child: Text(c)))
-                                          .toList(),
-                                      onChanged: (value) {
-                                        if (value != null) {
-                                          setState(() {
-                                            _selectedCurrency = value;
-                                          });
-                                        }
+                                    child: GestureDetector(
+                                      onTap: () {
+                                        setState(() {
+                                          _selectedAmount = 5;
+                                        });
+                                        Navigator.of(context).push(
+                                          MaterialPageRoute(
+                                            builder: (context) => const CardInteractionScreen(amount: 5),
+                                          ),
+                                        );
                                       },
+                                      child: Card(
+                                        shape: RoundedRectangleBorder(
+                                          borderRadius: BorderRadius.circular(12),
+                                          side: BorderSide(
+                                            color: _selectedAmount == 5
+                                                ? Theme.of(context).colorScheme.primary
+                                                : Colors.transparent,
+                                            width: 2,
+                                          ),
+                                        ),
+                                        child: Container(
+                                          padding: const EdgeInsets.symmetric(vertical: 20),
+                                          alignment: Alignment.center,
+                                          child: const Text(
+                                            '\$5',
+                                            style: TextStyle(
+                                              fontSize: 18,
+                                              fontWeight: FontWeight.bold,
+                                            ),
+                                          ),
+                                        ),
+                                      ),
                                     ),
                                   ),
                                 ],
                               ),
-                              const SizedBox(height: 20),
-                              SizedBox(
+                              /*const SizedBox(height: 20),
+                              ßSizedBox(
                                 width: double.infinity,
                                 height: 56,
                                 child: GradientButton(
-                                  onPressed: state.isProcessingPayment
-                                      ? null
-                                      : _processPayment,
+                                  onPressed: state.isProcessingPayment ? null : _processPayment,
                                   icon: Icons.credit_card,
-                                  label: state.isProcessingPayment
-                                      ? 'Processing...'
-                                      : 'Process Payment',
+                                  label: state.isProcessingPayment ? 'Processing...' : 'Process Payment',
                                   colors: [
                                     const Color(0xFF10B981), // Emerald
                                     const Color(0xFF059669),
                                   ],
                                 ),
-                              ),
+                              ),*/
                             ],
                           ),
                         ),
@@ -350,36 +354,23 @@ class _PaymentScreenState extends State<PaymentScreen> {
                               Row(
                                 children: [
                                   Icon(
-                                    state.lastTransaction!.isSuccess
-                                        ? Icons.check_circle
-                                        : Icons.error,
-                                    color: state.lastTransaction!.isSuccess
-                                        ? Colors.green
-                                        : colorScheme.error,
+                                    state.lastTransaction!.isSuccess ? Icons.check_circle : Icons.error,
+                                    color: state.lastTransaction!.isSuccess ? Colors.green : colorScheme.error,
                                     size: 32,
                                   ),
                                   const SizedBox(width: 12),
                                   Expanded(
                                     child: Column(
-                                      crossAxisAlignment:
-                                          CrossAxisAlignment.start,
+                                      crossAxisAlignment: CrossAxisAlignment.start,
                                       children: [
                                         Text(
-                                          state.lastTransaction!.isSuccess
-                                              ? 'Payment Successful'
-                                              : 'Payment Failed',
-                                          style: theme.textTheme.titleMedium
-                                              ?.copyWith(
+                                          state.lastTransaction!.isSuccess ? 'Payment Successful' : 'Payment Failed',
+                                          style: theme.textTheme.titleMedium?.copyWith(
                                             fontWeight: FontWeight.w600,
-                                            color:
-                                                state.lastTransaction!.isSuccess
-                                                    ? Colors.green
-                                                    : colorScheme.error,
+                                            color: state.lastTransaction!.isSuccess ? Colors.green : colorScheme.error,
                                           ),
                                         ),
-                                        if (state.lastTransaction!
-                                                .transactionId !=
-                                            null)
+                                        if (state.lastTransaction!.transactionId != null)
                                           Text(
                                             'ID: ${state.lastTransaction!.transactionId}',
                                             style: theme.textTheme.bodySmall,
@@ -393,20 +384,13 @@ class _PaymentScreenState extends State<PaymentScreen> {
                                 const SizedBox(height: 16),
                                 const Divider(),
                                 const SizedBox(height: 16),
-                                _buildTransactionDetail(context, 'Card Type',
-                                    state.lastTransaction!.cardType ?? 'N/A'),
+                                _buildTransactionDetail(context, 'Card Type', state.lastTransaction!.cardType ?? 'N/A'),
                                 _buildTransactionDetail(
-                                    context,
-                                    'Card Number',
-                                    state.lastTransaction!.maskedCardNumber ??
-                                        'N/A'),
+                                    context, 'Card Number', state.lastTransaction!.maskedCardNumber ?? 'N/A'),
                                 _buildTransactionDetail(context, 'Amount',
                                     '${state.lastTransaction!.amount} ${state.lastTransaction!.currency}'),
                                 _buildTransactionDetail(
-                                    context,
-                                    'Auth Code',
-                                    state.lastTransaction!.authorizationCode ??
-                                        'N/A'),
+                                    context, 'Auth Code', state.lastTransaction!.authorizationCode ?? 'N/A'),
                               ],
                               if (state.lastTransaction!.errorMessage != null)
                                 Padding(
@@ -430,8 +414,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
     );
   }
 
-  Widget _buildTransactionDetail(
-      BuildContext context, String label, String value) {
+  Widget _buildTransactionDetail(BuildContext context, String label, String value) {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 4),
       child: Row(
