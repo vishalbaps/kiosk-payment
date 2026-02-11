@@ -27,6 +27,8 @@ class DisconnectDeviceEvent extends PaymentEvent {}
 
 class RestartReaderEvent extends PaymentEvent {}
 
+class CancelTransactionEvent extends PaymentEvent {}
+
 class DevicesUpdatedEvent extends PaymentEvent {
   final List<PaymentDevice> devices;
 

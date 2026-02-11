@@ -160,7 +160,10 @@ public class KioskPaymentPlugin: NSObject, FlutterPlugin, BMSSwiperControllerDel
     public func swiper(_ swiper: BMSSwiper, connectionStateHasChanged state: BMSSwiperConnectionState) {
         var status = "unknown"
         switch state {
-        case .connected: status = "connected"
+        case .connected:
+            status = "connected"
+            // Auto-cancel transaction to enter idle state
+            _ = cancelTransaction()
         case .disconnected: status = "disconnected"
         case .connecting: status = "connecting"
         case .configuring: status = "configuring"
@@ -176,6 +179,18 @@ public class KioskPaymentPlugin: NSObject, FlutterPlugin, BMSSwiperControllerDel
     public func swiper(_ swiper: BMSSwiper, didFailWithError error: Error, completion: @escaping () -> Void) {
         self.restartReaderBlock = completion
         print("errorrrrr--: \(error.localizedDescription ?? "")")
+        
+        // Check if error is canceledTransaction
+        let nsError = error as NSError
+        if nsError.domain == BMSSwiperErrorDomain && nsError.code == BMSSwiperError.canceledTransaction.rawValue {
+             print("Transaction canceled (idle state)")
+             // Do not send error to Flutter for cancellation?
+             // Or maybe we want to know? 
+             // user request implies they just want "connect only". 
+             // If we send error, UI might show it. Let's suppress it for cleaner UX.
+             return
+        }
+        
         let message = String(format: "An error occurred: %@", error.localizedDescription)
         if let sink = swiperDidFailWithErrorEventSink {
             sink(message)
