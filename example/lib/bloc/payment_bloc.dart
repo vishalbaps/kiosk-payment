@@ -46,9 +46,8 @@ class PaymentBloc extends Bloc<PaymentEvent, PaymentState> {
     });
   }
 
-  Future<void> _onSearchDevices(
-      SearchDevicesEvent event, Emitter<PaymentState> emit) async {
-    emit(state.copyWith(isScanning: true, errorMessage: null));
+  Future<void> _onSearchDevices(SearchDevicesEvent event, Emitter<PaymentState> emit) async {
+    emit(state.copyWith(isScanning: true, errorMessage: null, devices: []));
     await _repository.searchDevices();
   }
 
@@ -76,9 +75,8 @@ class PaymentBloc extends Bloc<PaymentEvent, PaymentState> {
     await _repository.restartReader();
   }
 
-  void _onDevicesUpdated(
-      DevicesUpdatedEvent event, Emitter<PaymentState> emit) {
-    emit(state.copyWith(devices: event.devices));
+  void _onDevicesUpdated(DevicesUpdatedEvent event, Emitter<PaymentState> emit) {
+    emit(state.copyWith(devices: event.devices, isScanning: false));
   }
 
   void _onStatusUpdated(StatusUpdatedEvent event, Emitter<PaymentState> emit) {
