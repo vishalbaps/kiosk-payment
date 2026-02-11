@@ -22,10 +22,13 @@ class MethodChannelKioskPayment extends KioskPaymentPlatform {
       const EventChannel(kEventDeviceStatus);
   final EventChannel _swiperErrorEventChannel =
       const EventChannel(kEventSwiperDidFailWithError);
+  final EventChannel _displayMessageEventChannel =
+      const EventChannel(kEventDisplayMessage);
 
   Stream<List<PaymentDevice>>? _foundDevicesStream;
   Stream<DeviceStatus>? _deviceStatusStream;
   Stream<String>? _errorStream;
+  Stream<String>? _displayMessageStream;
 
   @override
   Future<String?> getPlatformVersion() async {
@@ -87,6 +90,12 @@ class MethodChannelKioskPayment extends KioskPaymentPlatform {
   @override
   Future<void> connectReader() async {
     await methodChannel.invokeMethod(kMethodConnectReader);
+  }
+
+  @override
+  Future<bool> restartReader() async {
+    return await methodChannel.invokeMethod<bool>(kMethodRestartReader) ??
+        false;
   }
 
   @override
@@ -158,5 +167,14 @@ class MethodChannelKioskPayment extends KioskPaymentPlatform {
   @override
   Stream<String> get transactionStatusStream {
     return deviceStatusStream.map((s) => s.name);
+  }
+
+  @override
+  Stream<String> get displayMessageStream {
+    _displayMessageStream ??=
+        _displayMessageEventChannel.receiveBroadcastStream().map((event) {
+      return event.toString();
+    });
+    return _displayMessageStream!;
   }
 }

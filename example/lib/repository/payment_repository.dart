@@ -28,15 +28,21 @@ class PaymentRepository {
     required double amount,
     required String currency,
   }) async {
-    return await _kioskPayment.processPayment(amount: amount, currency: currency);
+    return await _kioskPayment.processPayment(
+        amount: amount, currency: currency);
   }
 
   Future<void> disconnect() async {
     await _kioskPayment.disconnect();
   }
 
+  Future<bool> restartReader() async {
+    return await _kioskPayment.restartReader();
+  }
+
   Stream<List<PaymentDevice>> get foundDevices =>
       _kioskPayment.foundDevicesStream;
   Stream<DeviceStatus> get status => _kioskPayment.deviceStatusStream;
   Stream<String> get errors => _kioskPayment.errorStream;
+  Stream<String> get displayMessages => _kioskPayment.displayMessageStream;
 }

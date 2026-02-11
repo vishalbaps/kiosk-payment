@@ -8,11 +8,13 @@ enum ChannelNameEnum {
     static let kMethodFindSwipeDevices = "kMethodFindSwipeDevices"
     static let kMethodConfigureSwipeDevice = "kMethodConfigureSwipeDevice"
     static let kMethodConnectReader = "kMethodConnectReader"
+    static let kMethodRestartReader = "kMethodRestartReader"
     static let kMethodReleaseSwiperDevice = "kMethodReleaseSwiperDevice"
 
     static let kEventFindSwipeDevices = "kEventFindSwipeDevices"
     static let kEventDeviceStatus = "kEventDeviceStatus"
     static let kEventSwiperDidFailWithError = "kEventSwiperDidFailWithError"
+    static let kEventDisplayMessage = "kEventDisplayMessage"
 }
 
 public class KioskPaymentPlugin: NSObject, FlutterPlugin, BMSSwiperControllerDelegate {
@@ -28,6 +30,7 @@ public class KioskPaymentPlugin: NSObject, FlutterPlugin, BMSSwiperControllerDel
     private var findSwipeDevicesEventSink: FlutterEventSink?
     private var deviceStatusEventSink: FlutterEventSink?
     private var swiperDidFailWithErrorEventSink: FlutterEventSink?
+    private var displayMessageEventSink: FlutterEventSink?
 
     // SDK objects
     var swiper: BMSSwiperController?
@@ -35,6 +38,7 @@ public class KioskPaymentPlugin: NSObject, FlutterPlugin, BMSSwiperControllerDel
     var tempDevice: BMSDevice?
     var merchantID: String?
     var enableLogging: Bool = true
+    var restartReaderBlock: (() -> ())? = nil
 
     func initChannels(registrar: FlutterPluginRegistrar) {
         let findDevicesChannel = FlutterEventChannel(name: ChannelNameEnum.kEventFindSwipeDevices, binaryMessenger: registrar.messenger())
@@ -45,6 +49,9 @@ public class KioskPaymentPlugin: NSObject, FlutterPlugin, BMSSwiperControllerDel
         
         let errorChannel = FlutterEventChannel(name: ChannelNameEnum.kEventSwiperDidFailWithError, binaryMessenger: registrar.messenger())
         errorChannel.setStreamHandler(ErrorStreamHandler(plugin: self))
+
+        let displayMessageChannel = FlutterEventChannel(name: ChannelNameEnum.kEventDisplayMessage, binaryMessenger: registrar.messenger())
+        displayMessageChannel.setStreamHandler(DisplayMessageStreamHandler(plugin: self))
     }
 
     public func handle(_ call: FlutterMethodCall, result: @escaping FlutterResult) {
@@ -60,6 +67,9 @@ public class KioskPaymentPlugin: NSObject, FlutterPlugin, BMSSwiperControllerDel
 
         case ChannelNameEnum.kMethodConnectReader:
              result(connectReader())
+
+        case ChannelNameEnum.kMethodRestartReader:
+             result(restartReader())
 
         case ChannelNameEnum.kMethodReleaseSwiperDevice:
              result(releaseSwiperDevice())
@@ -114,6 +124,15 @@ public class KioskPaymentPlugin: NSObject, FlutterPlugin, BMSSwiperControllerDel
         return true
     }
 
+    func restartReader() -> Bool {
+        if self.restartReaderBlock != nil &&
+            self.swiper?.connectionState == BMSSwiperConnectionState.connected {
+            self.restartReaderBlock!()
+            return true
+        }
+        return false
+    }
+
     // MARK: - BMSSwiperControllerDelegate
     public func swiper(_ swiper: BMSSwiperController!, foundDevices devices: [Any]!) {
         self.foundDevices = devices as? [BMSDevice]
@@ -144,6 +163,7 @@ public class KioskPaymentPlugin: NSObject, FlutterPlugin, BMSSwiperControllerDel
     }
     
     public func swiper(_ swiper: BMSSwiper, didFailWithError error: Error, completion: @escaping () -> Void) {
+        self.restartReaderBlock = completion
         let message = String(format: "An error occurred: %@", error.localizedDescription)
         if let sink = swiperDidFailWithErrorEventSink {
             sink(message)
@@ -152,8 +172,17 @@ public class KioskPaymentPlugin: NSObject, FlutterPlugin, BMSSwiperControllerDel
     
     // Required stubs
     public func swiperDidStartCardRead(_ swiper: BMSSwiper) {}
-    public func swiper(_ swiper: BMSSwiper, didGenerateTokenWith account: BMSAccount?, completion: @escaping (() -> Void)) {}
-    public func swiper(_ swiper: BMSSwiperController!, displayMessage message: String!, canCancel cancelable: Bool) {}
+    public func swiper(_ swiper: BMSSwiper, didGenerateTokenWith account: BMSAccount?, completion: @escaping (() -> Void)) {
+        self.restartReaderBlock = completion
+    }
+    
+    public func swiper(_ swiper: BMSSwiperController!, displayMessage message: String!, canCancel cancelable: Bool) {
+        NSLog("Swiper Display Message: %@", message ?? "nil")
+        if let sink = displayMessageEventSink {
+            sink(message)
+        }
+    }
+    
     public func swiper(_ swiper: BMSSwiperController!, configurationProgress progress: Float) {}
 
     // Helper classes for StreamHandlers to avoid strong reference cycles or just to organize
@@ -192,6 +221,19 @@ public class KioskPaymentPlugin: NSObject, FlutterPlugin, BMSSwiperControllerDel
         }
         func onCancel(withArguments arguments: Any?) -> FlutterError? {
             plugin?.swiperDidFailWithErrorEventSink = nil
+            return nil
+        }
+    }
+
+    class DisplayMessageStreamHandler: NSObject, FlutterStreamHandler {
+        weak var plugin: KioskPaymentPlugin?
+        init(plugin: KioskPaymentPlugin) { self.plugin = plugin }
+        func onListen(withArguments arguments: Any?, eventSink events: @escaping FlutterEventSink) -> FlutterError? {
+            plugin?.displayMessageEventSink = events
+            return nil
+        }
+        func onCancel(withArguments arguments: Any?) -> FlutterError? {
+            plugin?.displayMessageEventSink = nil
             return nil
         }
     }

@@ -25,6 +25,8 @@ class ConnectDeviceEvent extends PaymentEvent {}
 
 class DisconnectDeviceEvent extends PaymentEvent {}
 
+class RestartReaderEvent extends PaymentEvent {}
+
 class DevicesUpdatedEvent extends PaymentEvent {
   final List<PaymentDevice> devices;
 
@@ -61,3 +63,10 @@ class ProcessPaymentEvent extends PaymentEvent {
 }
 
 class ClearTransactionEvent extends PaymentEvent {}
+
+class DisplayMessageEvent extends PaymentEvent {
+  final String message;
+  const DisplayMessageEvent(this.message);
+  @override
+  List<Object> get props => [message];
+}

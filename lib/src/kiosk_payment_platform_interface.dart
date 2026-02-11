@@ -52,6 +52,8 @@ abstract class KioskPaymentPlatform extends PlatformInterface {
 
   Future<void> connectReader();
 
+  Future<bool> restartReader();
+
   Future<void> disconnect();
 
   Future<TransactionResult> processPayment(
@@ -64,4 +66,5 @@ abstract class KioskPaymentPlatform extends PlatformInterface {
   Stream<DeviceStatus> get deviceStatusStream;
   Stream<String> get errorStream;
   Stream<String> get transactionStatusStream;
+  Stream<String> get displayMessageStream;
 }

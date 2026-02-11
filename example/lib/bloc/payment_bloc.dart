@@ -10,6 +10,7 @@ class PaymentBloc extends Bloc<PaymentEvent, PaymentState> {
   StreamSubscription? _devicesSubscription;
   StreamSubscription? _statusSubscription;
   StreamSubscription? _errorSubscription;
+  StreamSubscription? _displayMessageSubscription;
 
   PaymentBloc({required PaymentRepository repository})
       : _repository = repository,
@@ -19,11 +20,13 @@ class PaymentBloc extends Bloc<PaymentEvent, PaymentState> {
     on<SelectDeviceEvent>(_onSelectDevice);
     on<ConnectDeviceEvent>(_onConnectDevice);
     on<DisconnectDeviceEvent>(_onDisconnectDevice);
+    on<RestartReaderEvent>(_onRestartReader);
     on<DevicesUpdatedEvent>(_onDevicesUpdated);
     on<StatusUpdatedEvent>(_onStatusUpdated);
     on<PaymentErrorEvent>(_onPaymentError);
     on<ProcessPaymentEvent>(_onProcessPayment);
     on<ClearTransactionEvent>(_onClearTransaction);
+    on<DisplayMessageEvent>(_onDisplayMessage);
   }
 
   Future<void> _onInitialize(
@@ -37,6 +40,9 @@ class PaymentBloc extends Bloc<PaymentEvent, PaymentState> {
     });
     _errorSubscription = _repository.errors.listen((error) {
       add(PaymentErrorEvent(error));
+    });
+    _displayMessageSubscription = _repository.displayMessages.listen((message) {
+      add(DisplayMessageEvent(message));
     });
   }
 
@@ -64,6 +70,12 @@ class PaymentBloc extends Bloc<PaymentEvent, PaymentState> {
     await _repository.disconnect();
   }
 
+  Future<void> _onRestartReader(
+      RestartReaderEvent event, Emitter<PaymentState> emit) async {
+    emit(state.copyWith(displayMessage: null, errorMessage: null));
+    await _repository.restartReader();
+  }
+
   void _onDevicesUpdated(
       DevicesUpdatedEvent event, Emitter<PaymentState> emit) {
     emit(state.copyWith(devices: event.devices));
@@ -80,7 +92,8 @@ class PaymentBloc extends Bloc<PaymentEvent, PaymentState> {
 
   Future<void> _onProcessPayment(
       ProcessPaymentEvent event, Emitter<PaymentState> emit) async {
-    emit(state.copyWith(isProcessingPayment: true, errorMessage: null, lastTransaction: null));
+    emit(state.copyWith(
+        isProcessingPayment: true, errorMessage: null, lastTransaction: null));
     try {
       final result = await _repository.processPayment(
         amount: event.amount,
@@ -100,7 +113,13 @@ class PaymentBloc extends Bloc<PaymentEvent, PaymentState> {
 
   void _onClearTransaction(
       ClearTransactionEvent event, Emitter<PaymentState> emit) {
-    emit(state.copyWith(lastTransaction: null)); // Helper to clear previous results
+    emit(state.copyWith(
+        lastTransaction: null)); // Helper to clear previous results
+  }
+
+  void _onDisplayMessage(
+      DisplayMessageEvent event, Emitter<PaymentState> emit) {
+    emit(state.copyWith(displayMessage: event.message));
   }
 
   @override
@@ -108,6 +127,7 @@ class PaymentBloc extends Bloc<PaymentEvent, PaymentState> {
     _devicesSubscription?.cancel();
     _statusSubscription?.cancel();
     _errorSubscription?.cancel();
+    _displayMessageSubscription?.cancel();
     return super.close();
   }
 }

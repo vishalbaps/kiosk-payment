@@ -56,6 +56,11 @@ class KioskPayment {
     return _platform.connectReader();
   }
 
+  /// Restart the reader to accept a new card
+  Future<bool> restartReader() {
+    return _platform.restartReader();
+  }
+
   Future<TransactionResult> processPayment(
       {required double amount, required String currency}) {
     return _platform.processPayment(amount: amount, currency: currency);
@@ -78,4 +83,7 @@ class KioskPayment {
 
   /// Stream of errors
   Stream<String> get errorStream => _platform.errorStream;
+
+  /// Stream of display messages
+  Stream<String> get displayMessageStream => _platform.displayMessageStream;
 }

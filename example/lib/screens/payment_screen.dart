@@ -111,46 +111,75 @@ class _PaymentScreenState extends State<PaymentScreen> {
                     BuildCard(
                       child: Padding(
                         padding: const EdgeInsets.all(16),
-                        child: Row(
+                        child: Column(
                           children: [
-                            Icon(
-                              state.connectionStatus == DeviceStatus.connected
-                                  ? Icons.bluetooth_connected
-                                  : Icons.bluetooth_disabled,
-                              color: state.connectionStatus == DeviceStatus.connected
-                                  ? Colors.green
-                                  : colorScheme.outline,
-                            ),
-                            const SizedBox(width: 12),
-                            Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
+                            Row(
                               children: [
-                                Text(
-                                  'Status',
-                                  style: theme.textTheme.titleSmall,
+                                Icon(
+                                  state.connectionStatus ==
+                                          DeviceStatus.connected
+                                      ? Icons.bluetooth_connected
+                                      : Icons.bluetooth_disabled,
+                                  color: state.connectionStatus ==
+                                          DeviceStatus.connected
+                                      ? Colors.green
+                                      : colorScheme.outline,
                                 ),
-                                Container(
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 8,
-                                    vertical: 4,
+                                const SizedBox(width: 12),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        'Status',
+                                        style: theme.textTheme.titleSmall,
+                                      ),
+                                      Container(
+                                        padding: const EdgeInsets.symmetric(
+                                          horizontal: 8,
+                                          vertical: 4,
+                                        ),
+                                        decoration: BoxDecoration(
+                                          color: _getStatusColor(
+                                              state.connectionStatus,
+                                              colorScheme),
+                                          borderRadius:
+                                              BorderRadius.circular(12),
+                                        ),
+                                        child: Text(
+                                          state.connectionStatus.name
+                                              .toUpperCase(),
+                                          style: TextStyle(
+                                            color: state.connectionStatus ==
+                                                    DeviceStatus.connected
+                                                ? Colors.white
+                                                : colorScheme.onSurfaceVariant,
+                                            fontWeight: FontWeight.bold,
+                                            fontSize: 10,
+                                          ),
+                                        ),
+                                      ),
+                                    ],
                                   ),
-                                  decoration: BoxDecoration(
-                                    color: _getStatusColor(
-                                        state.connectionStatus, colorScheme),
-                                    borderRadius: BorderRadius.circular(12),
-                                  ),
-                                  child: Text(
-                                    state.connectionStatus.name.toUpperCase(),
-                                    style: TextStyle(
-                                      color: state.connectionStatus ==
-                                              DeviceStatus.connected
-                                          ? Colors.white
-                                          : colorScheme.onSurfaceVariant,
-                                      fontWeight: FontWeight.bold,
-                                      fontSize: 10,
+                                ),
+                                if (state.connectionStatus ==
+                                    DeviceStatus.connected)
+                                  ElevatedButton.icon(
+                                    onPressed: () {
+                                      context
+                                          .read<PaymentBloc>()
+                                          .add(RestartReaderEvent());
+                                    },
+                                    icon: const Icon(Icons.refresh, size: 18),
+                                    label: const Text('Restart Reader'),
+                                    style: ElevatedButton.styleFrom(
+                                      backgroundColor:
+                                          colorScheme.primaryContainer,
+                                      foregroundColor:
+                                          colorScheme.onPrimaryContainer,
                                     ),
                                   ),
-                                ),
                               ],
                             ),
                           ],
@@ -158,6 +187,35 @@ class _PaymentScreenState extends State<PaymentScreen> {
                       ),
                     ),
                     const SizedBox(height: 16),
+
+                    // Display Message from Device
+                    if (state.displayMessage != null &&
+                        state.displayMessage!.isNotEmpty)
+                      Padding(
+                        padding: const EdgeInsets.only(bottom: 16),
+                        child: BuildCard(
+                          color: colorScheme.primaryContainer,
+                          child: Padding(
+                            padding: const EdgeInsets.all(16),
+                            child: Row(
+                              children: [
+                                Icon(Icons.info_outline,
+                                    color: colorScheme.primary),
+                                const SizedBox(width: 12),
+                                Expanded(
+                                  child: Text(
+                                    state.displayMessage!,
+                                    style: TextStyle(
+                                      color: colorScheme.onPrimaryContainer,
+                                      fontWeight: FontWeight.w500,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ),
 
                     // Error Message
                     if (state.errorMessage != null)
@@ -313,10 +371,10 @@ class _PaymentScreenState extends State<PaymentScreen> {
                                           style: theme.textTheme.titleMedium
                                               ?.copyWith(
                                             fontWeight: FontWeight.w600,
-                                            color: state.lastTransaction!
-                                                    .isSuccess
-                                                ? Colors.green
-                                                : colorScheme.error,
+                                            color:
+                                                state.lastTransaction!.isSuccess
+                                                    ? Colors.green
+                                                    : colorScheme.error,
                                           ),
                                         ),
                                         if (state.lastTransaction!
@@ -335,18 +393,14 @@ class _PaymentScreenState extends State<PaymentScreen> {
                                 const SizedBox(height: 16),
                                 const Divider(),
                                 const SizedBox(height: 16),
-                                _buildTransactionDetail(
-                                    context,
-                                    'Card Type',
+                                _buildTransactionDetail(context, 'Card Type',
                                     state.lastTransaction!.cardType ?? 'N/A'),
                                 _buildTransactionDetail(
                                     context,
                                     'Card Number',
                                     state.lastTransaction!.maskedCardNumber ??
                                         'N/A'),
-                                _buildTransactionDetail(
-                                    context,
-                                    'Amount',
+                                _buildTransactionDetail(context, 'Amount',
                                     '${state.lastTransaction!.amount} ${state.lastTransaction!.currency}'),
                                 _buildTransactionDetail(
                                     context,
