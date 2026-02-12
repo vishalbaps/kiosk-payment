@@ -35,6 +35,10 @@ class PaymentBloc extends Bloc<PaymentEvent, PaymentState> {
     await _repository.initialize();
     _devicesSubscription = _repository.foundDevices.listen((devices) {
       add(DevicesUpdatedEvent(devices));
+    }, onError: (error) {
+      add(PaymentErrorEvent(error.toString()));
+      // Also stop scanning if error occurs
+      add(DevicesUpdatedEvent(state.devices)); 
     });
     _statusSubscription = _repository.status.listen((status) {
       add(StatusUpdatedEvent(status));
@@ -50,7 +54,12 @@ class PaymentBloc extends Bloc<PaymentEvent, PaymentState> {
   Future<void> _onSearchDevices(
       SearchDevicesEvent event, Emitter<PaymentState> emit) async {
     emit(state.copyWith(isScanning: true, errorMessage: null, devices: []));
-    await _repository.searchDevices();
+    try {
+      await _repository.searchDevices();
+    } catch (e) {
+      add(PaymentErrorEvent(e.toString()));
+      emit(state.copyWith(isScanning: false));
+    }
   }
 
   Future<void> _onSelectDevice(
@@ -94,7 +103,11 @@ class PaymentBloc extends Bloc<PaymentEvent, PaymentState> {
   }
 
   void _onPaymentError(PaymentErrorEvent event, Emitter<PaymentState> emit) {
-    emit(state.copyWith(errorMessage: event.error, isProcessingPayment: false));
+    emit(state.copyWith(
+      errorMessage: event.error,
+      isProcessingPayment: false,
+      isScanning: false,
+    ));
   }
 
   Future<void> _onProcessPayment(
