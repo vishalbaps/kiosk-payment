@@ -17,6 +17,8 @@ import com.bolt.consumersdk.domain.*
 import com.bolt.consumersdk.swiper.*
 import com.bolt.consumersdk.swiper.enums.*
 import com.bolt.consumersdk.listeners.BluetoothSearchResponseListener
+import android.os.Handler
+import android.os.Looper
 import java.math.BigDecimal
 
 class KioskPaymentPlugin: FlutterPlugin, MethodCallHandler, ActivityAware {
@@ -29,6 +31,7 @@ class KioskPaymentPlugin: FlutterPlugin, MethodCallHandler, ActivityAware {
     private var findSwipeDevicesEventSink: EventChannel.EventSink? = null
     private var deviceStatusEventSink: EventChannel.EventSink? = null
     private var swiperDidFailWithErrorEventSink: EventChannel.EventSink? = null
+    private var displayMessageEventSink: EventChannel.EventSink? = null
 
     // SDK objects
     private var foundDevices: MutableList<BluetoothDevice> = mutableListOf()
@@ -41,11 +44,14 @@ class KioskPaymentPlugin: FlutterPlugin, MethodCallHandler, ActivityAware {
         const val kMethodFindSwipeDevices = "kMethodFindSwipeDevices"
         const val kMethodConfigureSwipeDevice = "kMethodConfigureSwipeDevice"
         const val kMethodConnectReader = "kMethodConnectReader"
+        const val kMethodRestartReader = "kMethodRestartReader"
         const val kMethodReleaseSwiperDevice = "kMethodReleaseSwiperDevice"
+        const val kMethodCancelTransaction = "kMethodCancelTransaction"
 
         const val kEventFindSwipeDevices = "kEventFindSwipeDevices"
         const val kEventDeviceStatus = "kEventDeviceStatus"
         const val kEventSwiperDidFailWithError = "kEventSwiperDidFailWithError"
+        const val kEventDisplayMessage = "kEventDisplayMessage"
     }
 
     override fun onAttachedToEngine(@NonNull flutterPluginBinding: FlutterPlugin.FlutterPluginBinding) {
@@ -83,6 +89,15 @@ class KioskPaymentPlugin: FlutterPlugin, MethodCallHandler, ActivityAware {
                 swiperDidFailWithErrorEventSink = null
             }
         })
+        
+        EventChannel(binding.binaryMessenger, kEventDisplayMessage).setStreamHandler(object : EventChannel.StreamHandler {
+            override fun onListen(arguments: Any?, events: EventChannel.EventSink?) {
+                displayMessageEventSink = events
+            }
+            override fun onCancel(arguments: Any?) {
+                displayMessageEventSink = null
+            }
+        })
     }
 
     override fun onMethodCall(@NonNull call: MethodCall, @NonNull result: Result) {
@@ -103,8 +118,14 @@ class KioskPaymentPlugin: FlutterPlugin, MethodCallHandler, ActivityAware {
             kMethodConnectReader -> {
                 connectReader(result)
             }
+            kMethodRestartReader -> {
+                restartReader(result)
+            }
             kMethodReleaseSwiperDevice -> {
                 releaseSwiperDevice(result)
+            }
+            kMethodCancelTransaction -> {
+                cancelTransaction(result)
             }
             else -> {
                 result.notImplemented()
@@ -113,6 +134,7 @@ class KioskPaymentPlugin: FlutterPlugin, MethodCallHandler, ActivityAware {
     }
 
     private fun findSwipeDevices(result: Result) {
+        updateStatus("searching")
         foundDevices.clear()
         val api = CCConsumer.getInstance().getApi()
         
@@ -137,6 +159,7 @@ class KioskPaymentPlugin: FlutterPlugin, MethodCallHandler, ActivityAware {
     }
 
     private fun connectReader(result: Result) {
+        updateStatus("connecting")
         val device = selectedDevice
         activity?.let { act ->
             val listener = object : SwiperControllerListener {
@@ -146,7 +169,13 @@ class KioskPaymentPlugin: FlutterPlugin, MethodCallHandler, ActivityAware {
 
                 override fun onStartTokenGeneration() {}
                 override fun onError(error: SwiperError) {
-                    updateStatus("disconnected")
+                    if (error == SwiperError.TRANSACTION_CANCELED) {
+                        // Do not send error to Flutter for cancellation?
+                        // Or maybe we want to know?
+                        // user request implies they just want "connect only".
+                        // If we send error, UI might show it. Let's suppress it for cleaner UX.
+                        return
+                    }
                     activity?.runOnUiThread {
                         swiperDidFailWithErrorEventSink?.success(error.name)
                     }
@@ -156,24 +185,34 @@ class KioskPaymentPlugin: FlutterPlugin, MethodCallHandler, ActivityAware {
                 }
                 override fun onSwiperConnected() {
                     updateStatus("connected")
+                    // Auto-cancel transaction to enter idle state
+                    Handler(Looper.getMainLooper()).postDelayed({
+                        swiperController?.stopTransaction()
+                    }, 1000)
                 }
                 override fun onSwiperDisconnected() {
                     updateStatus("disconnected")
                 }
                 override fun onBatteryState(state: BatteryState) {}
-                override fun onDeviceConfigurationUpdate(update: String?) {}
-                override fun onDeviceConfigurationProgressUpdate(progress: Double) {}
+                override fun onDeviceConfigurationUpdate(update: String?) {
+                }
+                override fun onDeviceConfigurationProgressUpdate(progress: Double) {
+                }
                 override fun onDeviceConfigurationComplete(complete: Boolean) {}
                 override fun onCardRemoved() {}
                 override fun onRemoveCardRequested() {}
-                override fun showDeviceMessage(message: DeviceMessage, state: DeviceState) {}
+                override fun showDeviceMessage(message: DeviceMessage, state: DeviceState) {
+                    activity?.runOnUiThread {
+                        displayMessageEventSink?.success(message.getMessage())
+                    }
+                }
                 override fun onTimeout() {}
             }
             
             val device = selectedDevice
             if (device != null) {
-                val swiper = CCSwiperControllerFactory().create(act, listener, device.address, false)
-                swiper.startTransaction(SwiperCaptureMode.SWIPE_DIP_TAP, 0.0)
+                swiperController = CCSwiperControllerFactory().create(act, listener, device.address, false)
+                swiperController?.startTransaction(SwiperCaptureMode.SWIPE_DIP_TAP, 0.0)
                 result.success(true)
             } else {
                 result.error("NO_DEVICE_SELECTED", "Please select a device first", null)
@@ -182,8 +221,25 @@ class KioskPaymentPlugin: FlutterPlugin, MethodCallHandler, ActivityAware {
     }
 
     private fun releaseSwiperDevice(result: Result) {
-        // Implement release logic if available in SDK
+        swiperController?.stopTransaction()
         updateStatus("disconnected")
+        result.success(true)
+    }
+
+    private fun restartReader(result: Result) {
+        // On Android, we can just start transaction again if swiper is connected
+        swiperController?.let {
+            it.startTransaction(SwiperCaptureMode.SWIPE_DIP_TAP, 0.0)
+            result.success(true)
+        } ?: run {
+            result.error("SWIPER_NOT_INITIALIZED", "Swiper is not initialized", null)
+        }
+    }
+
+    private fun cancelTransaction(result: Result) {
+        Handler(Looper.getMainLooper()).postDelayed({
+            swiperController?.stopTransaction()
+        }, 1000)
         result.success(true)
     }
 
