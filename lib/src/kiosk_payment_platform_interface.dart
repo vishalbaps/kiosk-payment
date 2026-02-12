@@ -65,10 +65,20 @@ abstract class KioskPaymentPlatform extends PlatformInterface {
     throw UnimplementedError('processPayment() has not been implemented.');
   }
 
+  Future<void> generateToken({
+    required String cardNumber,
+    required String expirationDate,
+    required String cvv,
+    required String postalCode,
+  }) {
+    throw UnimplementedError('generateToken() has not been implemented.');
+  }
+
   // Streams
   Stream<List<PaymentDevice>> get foundDevicesStream;
   Stream<DeviceStatus> get deviceStatusStream;
   Stream<String> get errorStream;
   Stream<String> get transactionStatusStream;
   Stream<String> get displayMessageStream;
+  Stream<String> get onTokenGenerated;
 }

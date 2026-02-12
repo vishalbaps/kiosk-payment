@@ -70,6 +70,21 @@ class KioskPayment {
     return _platform.processPayment(amount: amount, currency: currency);
   }
 
+  /// Generate a token manually for a card
+  Future<void> generateToken({
+    required String cardNumber,
+    required String expirationDate,
+    required String cvv,
+    required String postalCode,
+  }) {
+    return _platform.generateToken(
+      cardNumber: cardNumber,
+      expirationDate: expirationDate,
+      cvv: cvv,
+      postalCode: postalCode,
+    );
+  }
+
   /// Disconnect the current device
   Future<void> disconnect() {
     return _platform.disconnect();
@@ -90,4 +105,7 @@ class KioskPayment {
 
   /// Stream of display messages
   Stream<String> get displayMessageStream => _platform.displayMessageStream;
+
+  /// Stream of generated tokens (from swipe or manual call)
+  Stream<String> get onTokenGenerated => _platform.onTokenGenerated;
 }

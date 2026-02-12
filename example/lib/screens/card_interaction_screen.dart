@@ -156,6 +156,44 @@ class _CardInteractionScreenState extends State<CardInteractionScreen> {
                           ),
                         ),
                       ),
+                    // Generated Token
+                    if (state.generatedToken != null)
+                      Padding(
+                        padding: const EdgeInsets.only(bottom: 16),
+                        child: BuildCard(
+                          color: Colors.green.shade50,
+                          child: Padding(
+                            padding: const EdgeInsets.all(16),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Row(
+                                  children: [
+                                    const Icon(Icons.check_circle_outline,
+                                        color: Colors.green),
+                                    const SizedBox(width: 12),
+                                    Text(
+                                      'Token Generated Successfully',
+                                      style: TextStyle(
+                                        color: Colors.green.shade900,
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                                const SizedBox(height: 8),
+                                SelectableText(
+                                  state.generatedToken!,
+                                  style: TextStyle(
+                                    fontFamily: 'monospace',
+                                    color: Colors.green.shade800,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ),
                     // Interaction Options
                     Row(
                       children: [

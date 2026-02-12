@@ -22,4 +22,5 @@ A Flutter plugin for kiosk payment device integration. Provides a clean abstract
   s.swift_version = '5.0'
 
   s.vendored_frameworks = 'BoltMobileSDK.xcframework'
+  s.resources = 'IDTech.bundle'
 end

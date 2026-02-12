@@ -44,9 +44,24 @@ class PaymentRepository {
     return await _kioskPayment.cancelTransaction();
   }
 
+  Future<void> generateToken({
+    required String cardNumber,
+    required String expirationDate,
+    required String cvv,
+    required String postalCode,
+  }) async {
+    await _kioskPayment.generateToken(
+      cardNumber: cardNumber,
+      expirationDate: expirationDate,
+      cvv: cvv,
+      postalCode: postalCode,
+    );
+  }
+
   Stream<List<PaymentDevice>> get foundDevices =>
       _kioskPayment.foundDevicesStream;
   Stream<DeviceStatus> get status => _kioskPayment.deviceStatusStream;
   Stream<String> get errors => _kioskPayment.errorStream;
   Stream<String> get displayMessages => _kioskPayment.displayMessageStream;
+  Stream<String> get tokens => _kioskPayment.onTokenGenerated;
 }

@@ -10,6 +10,7 @@ class PaymentState extends Equatable {
   final bool isProcessingPayment;
   final TransactionResult? lastTransaction;
   final String? displayMessage;
+  final String? generatedToken;
 
   const PaymentState({
     this.devices = const [],
@@ -20,6 +21,7 @@ class PaymentState extends Equatable {
     this.isProcessingPayment = false,
     this.lastTransaction,
     this.displayMessage,
+    this.generatedToken,
   });
 
   PaymentState copyWith({
@@ -31,6 +33,7 @@ class PaymentState extends Equatable {
     bool? isProcessingPayment,
     TransactionResult? lastTransaction,
     String? displayMessage,
+    String? generatedToken,
   }) {
     return PaymentState(
       devices: devices ?? this.devices,
@@ -41,6 +44,7 @@ class PaymentState extends Equatable {
       isProcessingPayment: isProcessingPayment ?? this.isProcessingPayment,
       lastTransaction: lastTransaction ?? this.lastTransaction,
       displayMessage: displayMessage,
+      generatedToken: generatedToken,
     );
   }
 
@@ -54,5 +58,6 @@ class PaymentState extends Equatable {
         isProcessingPayment,
         lastTransaction,
         displayMessage,
+        generatedToken,
       ];
 }

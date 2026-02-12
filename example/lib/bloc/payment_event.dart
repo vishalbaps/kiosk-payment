@@ -72,3 +72,10 @@ class DisplayMessageEvent extends PaymentEvent {
   @override
   List<Object> get props => [message];
 }
+
+class TokenGeneratedEvent extends PaymentEvent {
+  final String token;
+  const TokenGeneratedEvent(this.token);
+  @override
+  List<Object> get props => [token];
+}

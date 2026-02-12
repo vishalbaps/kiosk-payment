@@ -11,6 +11,7 @@ class PaymentBloc extends Bloc<PaymentEvent, PaymentState> {
   StreamSubscription? _statusSubscription;
   StreamSubscription? _errorSubscription;
   StreamSubscription? _displayMessageSubscription;
+  StreamSubscription? _tokenSubscription;
 
   PaymentBloc({required PaymentRepository repository})
       : _repository = repository,
@@ -28,6 +29,7 @@ class PaymentBloc extends Bloc<PaymentEvent, PaymentState> {
     on<ProcessPaymentEvent>(_onProcessPayment);
     on<ClearTransactionEvent>(_onClearTransaction);
     on<DisplayMessageEvent>(_onDisplayMessage);
+    on<TokenGeneratedEvent>(_onTokenGenerated);
   }
 
   Future<void> _onInitialize(
@@ -44,6 +46,9 @@ class PaymentBloc extends Bloc<PaymentEvent, PaymentState> {
     });
     _displayMessageSubscription = _repository.displayMessages.listen((message) {
       add(DisplayMessageEvent(message));
+    });
+    _tokenSubscription = _repository.tokens.listen((token) {
+      add(TokenGeneratedEvent(token));
     });
   }
 
@@ -129,12 +134,21 @@ class PaymentBloc extends Bloc<PaymentEvent, PaymentState> {
     emit(state.copyWith(displayMessage: event.message));
   }
 
+  void _onTokenGenerated(
+      TokenGeneratedEvent event, Emitter<PaymentState> emit) {
+    emit(state.copyWith(
+      generatedToken: event.token,
+      isProcessingPayment: false, // Token received, stop generic processing state if any
+    ));
+  }
+
   @override
   Future<void> close() {
     _devicesSubscription?.cancel();
     _statusSubscription?.cancel();
     _errorSubscription?.cancel();
     _displayMessageSubscription?.cancel();
+    _tokenSubscription?.cancel();
     return super.close();
   }
 }

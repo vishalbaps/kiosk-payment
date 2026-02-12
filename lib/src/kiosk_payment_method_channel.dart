@@ -24,11 +24,14 @@ class MethodChannelKioskPayment extends KioskPaymentPlatform {
       const EventChannel(kEventSwiperDidFailWithError);
   final EventChannel _displayMessageEventChannel =
       const EventChannel(kEventDisplayMessage);
+  final EventChannel _generateTokenEventChannel =
+      const EventChannel(kEventGenerateToken);
 
   Stream<List<PaymentDevice>>? _foundDevicesStream;
   Stream<DeviceStatus>? _deviceStatusStream;
   Stream<String>? _errorStream;
   Stream<String>? _displayMessageStream;
+  Stream<String>? _generateTokenStream;
 
   @override
   Future<String?> getPlatformVersion() async {
@@ -138,6 +141,22 @@ class MethodChannelKioskPayment extends KioskPaymentPlatform {
   }
 
   @override
+  Future<void> generateToken({
+    required String cardNumber,
+    required String expirationDate,
+    required String cvv,
+    required String postalCode,
+  }) async {
+    final Map<String, String> args = {
+      'cardNumber': cardNumber,
+      'expirationDate': expirationDate,
+      'cvv': cvv,
+      'postalCode': postalCode,
+    };
+    await methodChannel.invokeMethod(kMethodGenerateToken, args);
+  }
+
+  @override
   Stream<List<PaymentDevice>> get foundDevicesStream {
     _foundDevicesStream ??=
         _findDevicesEventChannel.receiveBroadcastStream().map((event) {
@@ -182,5 +201,14 @@ class MethodChannelKioskPayment extends KioskPaymentPlatform {
       return event.toString();
     });
     return _displayMessageStream!;
+  }
+
+  @override
+  Stream<String> get onTokenGenerated {
+    _generateTokenStream ??=
+        _generateTokenEventChannel.receiveBroadcastStream().map((event) {
+      return event.toString();
+    });
+    return _generateTokenStream!;
   }
 }
