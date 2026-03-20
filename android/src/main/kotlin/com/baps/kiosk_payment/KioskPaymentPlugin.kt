@@ -297,18 +297,19 @@ class KioskPaymentPlugin : FlutterPlugin, MethodCallHandler, ActivityAware {
         result.success(true)
     }
 
-            val device = selectedDevice
-            if (device != null) {
-                swiperController =
-                    CCSwiperControllerFactory().create(act, swiperControllerListener, device.address, false)
-                Thread {
-                    Log.d("KioskPaymentPlugin", "Starting transaction on background thread")
-                    swiperController?.startTransaction(SwiperCaptureMode.SWIPE_TAP_INSERT, 2.0)
-                }.start()
-                result.success(true)
-            } else {
-                result.error("NO_DEVICE_SELECTED", "Please select a device first", null)
-            }
+    private fun connectReader(result: Result) {
+        val device = selectedDevice
+        if (device != null) {
+            swiperController =
+                CCSwiperControllerFactory().create(activity, swiperControllerListener, device.address, false)
+            Thread {
+                Log.d("KioskPaymentPlugin", "Starting transaction on background thread")
+                swiperController?.startTransaction(SwiperCaptureMode.SWIPE_TAP_INSERT, 2.0)
+            }.start()
+            result.success(true)
+        } else {
+            result.error("NO_DEVICE_SELECTED", "Please select a device first", null)
+        }
     }
 
     private fun releaseSwiperDevice(result: Result) {
