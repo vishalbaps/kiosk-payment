@@ -198,9 +198,16 @@ public class KioskPaymentPlugin: NSObject, FlutterPlugin, BMSSwiperControllerDel
     }
     
     // Required stubs
-    public func swiperDidStartCardRead(_ swiper: BMSSwiper) {}
+    public func swiperDidStartCardRead(_ swiper: BMSSwiper) {
+        if let sink = deviceStatusEventSink {
+            sink("processing")
+        }
+    }
     public func swiper(_ swiper: BMSSwiper, didGenerateTokenWith account: BMSAccount?, completion: @escaping (() -> Void)) {
         self.restartReaderBlock = completion
+        if let sink = deviceStatusEventSink {
+            sink("transaction_completed")
+        }
     }
     
     public func swiper(_ swiper: BMSSwiperController!, displayMessage message: String!, canCancel cancelable: Bool) {
@@ -216,6 +223,19 @@ public class KioskPaymentPlugin: NSObject, FlutterPlugin, BMSSwiperControllerDel
 
         if let sink = displayMessageEventSink {
             sink(finalMessage)
+        }
+        
+        // Map common messages to statuses if possible
+        if let msg = finalMessage?.lowercased() {
+             if msg.contains("swipe") || msg.contains("dip") || msg.contains("insert") || msg.contains("tap") {
+                 if let statusSink = deviceStatusEventSink {
+                     statusSink("ready_for_card")
+                 }
+             } else if msg.contains("processing") || msg.contains("reading") {
+                 if let statusSink = deviceStatusEventSink {
+                     statusSink("processing")
+                 }
+             }
         }
     }
     

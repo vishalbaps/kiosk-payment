@@ -8,6 +8,7 @@ const kMethodRestartReader = 'kMethodRestartReader';
 const kMethodCancelTransaction = 'kMethodCancelTransaction';
 const kMethodSwipeMode = 'kMethodSwipeMode';
 const kMethodReleaseSwiperDevice = 'kMethodReleaseSwiperDevice';
+const kMethodProcessPayment = 'kMethodProcessPayment';
 
 const kEventFindSwipeDevices = 'kEventFindSwipeDevices';
 const kEventConfigurationProgress = 'kEventConfigurationProgress';

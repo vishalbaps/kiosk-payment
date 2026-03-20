@@ -25,8 +25,11 @@ class _CardInteractionScreenState extends State<CardInteractionScreen> {
   @override
   void initState() {
     super.initState();
-    // Start the transaction (ready for payment) when this screen opens
-    context.read<PaymentBloc>().add(RestartReaderEvent());
+    // Start real payment process
+    context.read<PaymentBloc>().add(ProcessPaymentEvent(
+          amount: widget.amount.toDouble(),
+          currency: 'USD',
+        ));
   }
 
   @override
@@ -81,6 +84,87 @@ class _CardInteractionScreenState extends State<CardInteractionScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
+                    // Transaction Result
+                    if (state.lastTransaction != null)
+                      Padding(
+                        padding: const EdgeInsets.only(bottom: 16),
+                        child: BuildCard(
+                          color: state.lastTransaction!.isSuccess
+                              ? Colors.green.withOpacity(0.1)
+                              : colorScheme.errorContainer,
+                          child: Padding(
+                            padding: const EdgeInsets.all(16),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Row(
+                                  children: [
+                                    Icon(
+                                      state.lastTransaction!.isSuccess
+                                          ? Icons.check_circle
+                                          : Icons.error,
+                                      color: state.lastTransaction!.isSuccess
+                                          ? Colors.green
+                                          : colorScheme.error,
+                                      size: 32,
+                                    ),
+                                    const SizedBox(width: 12),
+                                    Expanded(
+                                      child: Column(
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
+                                        children: [
+                                          Text(
+                                            state.lastTransaction!.isSuccess
+                                                ? 'Payment Successful'
+                                                : 'Payment Failed',
+                                            style: theme.textTheme.titleMedium
+                                                ?.copyWith(
+                                              fontWeight: FontWeight.w600,
+                                              color: state
+                                                      .lastTransaction!
+                                                      .isSuccess
+                                                  ? Colors.green
+                                                  : colorScheme.error,
+                                            ),
+                                          ),
+                                          if (state.lastTransaction!
+                                                  .transactionId !=
+                                              null)
+                                            Text(
+                                              'ID: ${state.lastTransaction!.transactionId}',
+                                              style: theme.textTheme.bodySmall,
+                                            ),
+                                        ],
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                                if (state.lastTransaction!.isSuccess) ...[
+                                  const SizedBox(height: 16),
+                                  const Divider(),
+                                  const SizedBox(height: 16),
+                                  _buildTransactionDetail('Token',
+                                      state.lastTransaction!.token ?? 'N/A'),
+                                  _buildTransactionDetail(
+                                      'Card Type',
+                                      state.lastTransaction!.cardType ?? 'N/A'),
+                                  _buildTransactionDetail(
+                                      'Card Number',
+                                      state.lastTransaction!.maskedCardNumber ??
+                                          'N/A'),
+                                ],
+                              ],
+                            ),
+                          ),
+                        ),
+                      ),
+
+                    // Progress indicator for payment
+                    if (state.isProcessingPayment)
+                      const Center(
+                        child: CircularProgressIndicator(),
+                      ),
                     // Amount Display
                     Center(
                       child: Column(
@@ -178,12 +262,96 @@ class _CardInteractionScreenState extends State<CardInteractionScreen> {
                         ),
                       ],
                     ),
+                    const SizedBox(height: 32),
+                    // Current Status Display
+                    Center(
+                      child: Column(
+                        children: [
+                          Text(
+                            'Current Status:',
+                            style: theme.textTheme.labelLarge?.copyWith(
+                              color: colorScheme.outline,
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 16,
+                              vertical: 8,
+                            ),
+                            decoration: BoxDecoration(
+                              color: colorScheme.surfaceContainerHighest,
+                              borderRadius: BorderRadius.circular(20),
+                            ),
+                            child: Text(
+                              _getStatusString(state.connectionStatus),
+                              style: theme.textTheme.bodyMedium?.copyWith(
+                                fontWeight: FontWeight.bold,
+                                color: colorScheme.onSurfaceVariant,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
                   ],
                 ),
               );
             },
           ),
         ),
+      ),
+    );
+  }
+
+  String _getStatusString(DeviceStatus status) {
+    switch (status) {
+      case DeviceStatus.connected:
+        return 'Connected';
+      case DeviceStatus.disconnected:
+        return 'Disconnected';
+      case DeviceStatus.readyForCard:
+        return 'Ready for Card';
+      case DeviceStatus.processing:
+        return 'Processing...';
+      case DeviceStatus.cardRemoved:
+        return 'Card Removed';
+      case DeviceStatus.removeCardRequested:
+        return 'Please Remove Card';
+      case DeviceStatus.transactionCompleted:
+        return 'Transaction Completed';
+      case DeviceStatus.connecting:
+        return 'Connecting...';
+      case DeviceStatus.configuring:
+        return 'Configuring Reader...';
+      case DeviceStatus.scanning:
+        return 'Scanning for Reader...';
+      case DeviceStatus.error:
+        return 'Internal Error';
+      default:
+        final name = status.name;
+        if (name.isEmpty) return 'Unknown';
+        return name[0].toUpperCase() + name.substring(1);
+    }
+  }
+
+  Widget _buildTransactionDetail(String label, String value) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Text(
+            label,
+            style: TextStyle(
+              color: Theme.of(context).colorScheme.outline,
+            ),
+          ),
+          Text(
+            value,
+            style: const TextStyle(fontWeight: FontWeight.w600),
+          ),
+        ],
       ),
     );
   }

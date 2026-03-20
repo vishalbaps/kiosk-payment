@@ -24,6 +24,8 @@ class MethodChannelKioskPayment extends KioskPaymentPlatform {
       const EventChannel(kEventSwiperDidFailWithError);
   final EventChannel _displayMessageEventChannel =
       const EventChannel(kEventDisplayMessage);
+  final EventChannel _onTokenGeneratedEventChannel =
+      const EventChannel(kEventGenerateToken);
 
   Stream<List<PaymentDevice>>? _foundDevicesStream;
   Stream<DeviceStatus>? _deviceStatusStream;
@@ -126,15 +128,53 @@ class MethodChannelKioskPayment extends KioskPaymentPlatform {
   @override
   Future<TransactionResult> processPayment(
       {required double amount, required String currency}) async {
-    // Simulate payment processing for now as specific backend logic isn't defined
-    return Future.delayed(const Duration(seconds: 2), () {
-      return TransactionResult.success(
-          transactionId: 'TXN-${DateTime.now().millisecondsSinceEpoch}',
-          amount: amount,
-          currency: currency,
-          cardType: 'Visa',
-          maskedCardNumber: '**** 1234');
-    });
+    final completer = Completer<TransactionResult>();
+    StreamSubscription? tokenSub;
+    StreamSubscription? errorSub;
+
+    void cleanup() {
+      tokenSub?.cancel();
+      errorSub?.cancel();
+    }
+
+    try {
+      // Listen for token or error
+      tokenSub = _onTokenGeneratedEventChannel
+          .receiveBroadcastStream()
+          .listen((event) {
+        if (!completer.isCompleted) {
+          final data = Map<String, dynamic>.from(event);
+          completer.complete(TransactionResult.success(
+            token: data['token'],
+            maskedCardNumber: data['maskedCardNumber'],
+            cardType: data['cardType'],
+            amount: amount,
+            currency: currency,
+            transactionId: 'TXN-${DateTime.now().millisecondsSinceEpoch}',
+          ));
+          cleanup();
+        }
+      });
+
+      errorSub = errorStream.listen((error) {
+        if (!completer.isCompleted) {
+          completer.complete(TransactionResult.failure(error));
+          cleanup();
+        }
+      });
+
+      // Call native processPayment
+      await methodChannel.invokeMethod(kMethodProcessPayment, {'amount': amount});
+
+      // Wait for result with timeout
+      return await completer.future.timeout(const Duration(minutes: 2));
+    } catch (e) {
+      cleanup();
+      if (e is TimeoutException) {
+        return TransactionResult.failure('Payment timed out. Please try again.');
+      }
+      return TransactionResult.failure(e.toString());
+    }
   }
 
   @override

@@ -33,12 +33,115 @@ class KioskPaymentPlugin : FlutterPlugin, MethodCallHandler, ActivityAware {
     private var deviceStatusEventSink: EventChannel.EventSink? = null
     private var swiperDidFailWithErrorEventSink: EventChannel.EventSink? = null
     private var displayMessageEventSink: EventChannel.EventSink? = null
+    private var onTokenGeneratedEventSink: EventChannel.EventSink? = null
 
     // SDK objects
     private var foundDevices: MutableList<BluetoothDevice> = mutableListOf()
     private var selectedDevice: BluetoothDevice? = null
     private var swiperController: SwiperController? = null
-    private var swiperControllerListener: SwiperControllerListener? = null
+    private val swiperControllerListener: SwiperControllerListener = object : SwiperControllerListenerStub() {
+        override fun onTokenGenerated(
+            account: CCConsumerAccount?, error: CCConsumerError?
+        ) {
+            Log.d("KioskPaymentPlugin", "onTokenGenerated: called")
+            if (error != null) {
+                Log.e("KioskPaymentPlugin", "onTokenGenerated error: ${error.getResponseMessage()}")
+                activity?.runOnUiThread {
+                    swiperDidFailWithErrorEventSink?.success(error.getResponseMessage())
+                }
+            } else if (account != null) {
+                Log.d(
+                    "KioskPaymentPlugin",
+                    "onTokenGenerated success: token=${account.getToken()}"
+                )
+                activity?.runOnUiThread {
+                    val accountData = mapOf(
+                        "token" to account.getToken(),
+                        "expirationDate" to account.getExpirationDate()
+                    )
+                    onTokenGeneratedEventSink?.success(accountData)
+                    updateStatus("transaction_completed")
+                }
+            } else {
+                Log.w("KioskPaymentPlugin", "onTokenGenerated: received null account and null error.")
+            }
+        }
+
+        override fun onStartTokenGeneration() {
+            Log.d("onStartTokenGeneration", "onStartTokenGeneration")
+            updateStatus("processing")
+        }
+
+        override fun onError(error: SwiperError) {
+            Log.d("SwiperError", "${error.name}")
+            if (error == SwiperError.TRANSACTION_CANCELED) {
+                return
+            }
+            activity?.runOnUiThread {
+                swiperDidFailWithErrorEventSink?.success(error.name)
+            }
+        }
+
+        override fun onSwiperReadyForCard(type: CardProcessingType) {
+            Log.d("KioskPaymentPlugin", "Ready for card: ${type.name}")
+            updateStatus("ready_for_card")
+        }
+
+
+        override fun onSwiperConnected() {
+            Log.d("KioskPaymentPlugin", "onSwiperConnected")
+            updateStatus("connected")
+        }
+
+        override fun onSwiperDisconnected() {
+            Log.d("KioskPaymentPlugin", "onSwiperDisconnected")
+            updateStatus("disconnected")
+        }
+
+        override fun onBatteryState(state: BatteryState) {
+            Log.d("KioskPaymentPlugin", "onBatteryState: $state")
+        }
+
+        override fun onDeviceConfigurationUpdate(update: String?) {
+            Log.d("KioskPaymentPlugin", "onDeviceConfigurationUpdate: $update")
+
+        }
+
+        override fun onDeviceConfigurationProgressUpdate(progress: Double) {
+            Log.d("KioskPaymentPlugin", "onDeviceConfigurationProgressUpdate: $progress")
+
+        }
+
+        override fun onDeviceConfigurationComplete(complete: Boolean) {
+            Log.d("KioskPaymentPlugin", "onDeviceConfigurationComplete: $complete")
+        }
+
+        override fun onCardRemoved() {
+            Log.d("KioskPaymentPlugin", "onCardRemoved")
+            updateStatus("card_removed")
+        }
+
+        override fun onRemoveCardRequested() {
+            Log.d("KioskPaymentPlugin", "onRemoveCardRequested")
+            updateStatus("remove_card_requested")
+        }
+
+        override fun showDeviceMessage(message: DeviceMessage, state: DeviceState) {
+            Log.d("KioskPaymentPlugin", "showDeviceMessage: message=${message.getMessage()}, state=$state")
+
+            activity?.runOnUiThread {
+                Log.d("KioskPaymentPlugin", "Forwarding message: ${message.getMessage()} and state: $state")
+                displayMessageEventSink?.success(message.getMessage())
+                // Map state to status to help identify card interaction progress
+                updateStatus(state.toString().lowercase())
+            }
+        }
+
+        override fun onTimeout() {
+            Log.d("KioskPaymentPlugin", "onTimeout")
+            updateStatus("timeout")
+        }
+    }
 
     companion object {
         const val kMethodPlatformHelper = "kMethodPlatformHelper"
@@ -49,11 +152,13 @@ class KioskPaymentPlugin : FlutterPlugin, MethodCallHandler, ActivityAware {
         const val kMethodRestartReader = "kMethodRestartReader"
         const val kMethodReleaseSwiperDevice = "kMethodReleaseSwiperDevice"
         const val kMethodCancelTransaction = "kMethodCancelTransaction"
+        const val kMethodProcessPayment = "kMethodProcessPayment"
 
         const val kEventFindSwipeDevices = "kEventFindSwipeDevices"
         const val kEventDeviceStatus = "kEventDeviceStatus"
         const val kEventSwiperDidFailWithError = "kEventSwiperDidFailWithError"
         const val kEventDisplayMessage = "kEventDisplayMessage"
+        const val kEventGenerateToken = "kEventGenerateToken"
     }
 
     override fun onAttachedToEngine(@NonNull flutterPluginBinding: FlutterPlugin.FlutterPluginBinding) {
@@ -109,6 +214,17 @@ class KioskPaymentPlugin : FlutterPlugin, MethodCallHandler, ActivityAware {
                 displayMessageEventSink = null
             }
         })
+
+        EventChannel(binding.binaryMessenger, kEventGenerateToken).setStreamHandler(object :
+            EventChannel.StreamHandler {
+            override fun onListen(arguments: Any?, events: EventChannel.EventSink?) {
+                onTokenGeneratedEventSink = events
+            }
+
+            override fun onCancel(arguments: Any?) {
+                onTokenGeneratedEventSink = null
+            }
+        })
     }
 
     override fun onMethodCall(@NonNull call: MethodCall, @NonNull result: Result) {
@@ -145,6 +261,11 @@ class KioskPaymentPlugin : FlutterPlugin, MethodCallHandler, ActivityAware {
                 cancelTransaction(result)
             }
 
+            kMethodProcessPayment -> {
+                val amount = call.argument<Double>("amount") ?: 0.0
+                processPayment(amount, result)
+            }
+
             else -> {
                 result.notImplemented()
             }
@@ -176,110 +297,18 @@ class KioskPaymentPlugin : FlutterPlugin, MethodCallHandler, ActivityAware {
         result.success(true)
     }
 
-    private fun connectReader(result: Result) {
-        updateStatus("connecting")
-        val device = selectedDevice
-        activity?.let { act ->
-            swiperControllerListener = object : SwiperControllerListener {
-                override fun onTokenGenerated(
-                    account: CCConsumerAccount?, error: CCConsumerError?
-                ) {
-                    Log.d("KioskPaymentPlugin", "onTokenGenerated: called")
-                    if (error != null) {
-                        Log.e("KioskPaymentPlugin", "onTokenGenerated error: ${error.getResponseMessage()}")
-                        activity?.runOnUiThread {
-                            swiperDidFailWithErrorEventSink?.success(error.getResponseMessage())
-                        }
-                    } else if (account != null) {
-                        Log.d(
-                            "KioskPaymentPlugin",
-                            "onTokenGenerated success: token=${account.getToken()}"
-                        )
-                        // This indicates a transaction completed successfully,
-                        // so we can update the status accordingly.
-                        updateStatus("transaction_completed")
-                    } else {
-                        Log.w("KioskPaymentPlugin", "onTokenGenerated: received null account and null error.")
-                    }
-                }
-
-                override fun onStartTokenGeneration() {
-                    Log.d("onStartTokenGeneration", "onStartTokenGeneration")
-                }
-                override fun onError(error: SwiperError) {
-                    Log.d("SwiperError", "${error.name}")
-                    if (error == SwiperError.TRANSACTION_CANCELED) {
-                        // Do not send error to Flutter for cancellation?
-                        // Or maybe we want to know?
-                        // user request implies they just want "connect only".
-                        // If we send error, UI might show it. Let's suppress it for cleaner UX.
-                        return
-                    }
-                    activity?.runOnUiThread {
-                        swiperDidFailWithErrorEventSink?.success(error.name)
-                    }
-                }
-
-                override fun onSwiperReadyForCard(type: CardProcessingType) {
-                    Log.d("KioskPaymentPlugin", "Ready for card: ${type.name}")
-                }
-
-
-                override fun onSwiperConnected() {
-
-                    Log.d("KioskPaymentPlugin", "Swiper Connected")
-                    updateStatus("connected")
-//                    // Auto-cancel transaction to enter idle state
-//                    Handler(Looper.getMainLooper()).postDelayed({
-//                        swiperController?.stopTransaction()
-//                    }, 1000)
-                }
-
-                override fun onSwiperDisconnected() {
-
-                    Log.d("KioskPaymentPlugin", "Swiper Disconnected")
-                    updateStatus("disconnected")
-                }
-
-                override fun onBatteryState(state: BatteryState) {}
-                override fun onDeviceConfigurationUpdate(update: String?) {
-                    Log.d("KioskPaymentPlugin", "Device configuration update: $update")
-
-                }
-
-                override fun onDeviceConfigurationProgressUpdate(progress: Double) {
-                    Log.d("KioskPaymentPlugin", "Device configuration progress: $progress")
-
-                }
-
-                override fun onDeviceConfigurationComplete(complete: Boolean) {}
-                override fun onCardRemoved() {
-                    Log.d("KioskPaymentPlugin", "onCardRemoved")
-                }
-                override fun onRemoveCardRequested() {
-                    Log.d("KioskPaymentPlugin", "onRemoveCardRequested")
-                }
-                override fun showDeviceMessage(message: DeviceMessage, state: DeviceState) {
-                    Log.d("KioskPaymentPlugin", "Device Message: ${message.getMessage()}")
-
-                    activity?.runOnUiThread {
-                        displayMessageEventSink?.success(message.getMessage())
-                    }
-                }
-
-                override fun onTimeout() {}
-            }
-
             val device = selectedDevice
             if (device != null) {
                 swiperController =
-                    CCSwiperControllerFactory().create(act, swiperControllerListener!!, device.address, false)
-                swiperController?.startTransaction(SwiperCaptureMode.SWIPE_DIP_TAP, 2.0)
+                    CCSwiperControllerFactory().create(act, swiperControllerListener, device.address, false)
+                Thread {
+                    Log.d("KioskPaymentPlugin", "Starting transaction on background thread")
+                    swiperController?.startTransaction(SwiperCaptureMode.SWIPE_TAP_INSERT, 2.0)
+                }.start()
                 result.success(true)
             } else {
                 result.error("NO_DEVICE_SELECTED", "Please select a device first", null)
             }
-        }
     }
 
     private fun releaseSwiperDevice(result: Result) {
@@ -296,8 +325,11 @@ class KioskPaymentPlugin : FlutterPlugin, MethodCallHandler, ActivityAware {
             activity?.runOnUiThread {
                 try {
                     swiper.stopTransaction()
-                    swiper.startTransaction(SwiperCaptureMode.SWIPE_DIP_TAP, 2.0)
-                    Log.d("KioskPaymentPlugin", "startTransaction called successfully")
+                    Thread {
+                        Log.d("KioskPaymentPlugin", "Restarting transaction on background thread")
+                        swiper.startTransaction(SwiperCaptureMode.SWIPE_TAP_INSERT, 2.0)
+                    }.start()
+                    Log.d("KioskPaymentPlugin", "startTransaction called successfully (restart)")
                     result.success(true)
                 } catch (e: Exception) {
                     Log.e("KioskPaymentPlugin", "Error starting transaction: ${e.message}")
@@ -315,6 +347,29 @@ class KioskPaymentPlugin : FlutterPlugin, MethodCallHandler, ActivityAware {
             swiperController?.stopTransaction()
         }, 1000)
         result.success(true)
+    }
+
+    private fun processPayment(amount: Double, result: Result) {
+        Log.d("KioskPaymentPlugin", "processPayment called: amount=$amount")
+        swiperController?.let { swiper ->
+            activity?.runOnUiThread {
+                try {
+                    swiper.stopTransaction()
+                    Thread {
+                        Log.d("KioskPaymentPlugin", "Processing payment on background thread: amount=$amount")
+                        swiper.startTransaction(SwiperCaptureMode.SWIPE_TAP_INSERT, amount)
+                    }.start()
+                    Log.d("KioskPaymentPlugin", "startTransaction initiated for amount $amount")
+                    result.success(true)
+                } catch (e: Exception) {
+                    Log.e("KioskPaymentPlugin", "Error starting processPayment: ${e.message}")
+                    result.error("PAYMENT_ERROR", e.message, null)
+                }
+            }
+        } ?: run {
+            Log.e("KioskPaymentPlugin", "swiperController is null in processPayment")
+            result.error("SWIPER_NOT_INITIALIZED", "Swiper is not initialized", null)
+        }
     }
 
     private fun updateStatus(status: String) {
