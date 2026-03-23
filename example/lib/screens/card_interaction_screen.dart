@@ -25,6 +25,8 @@ class _CardInteractionScreenState extends State<CardInteractionScreen> {
   @override
   void initState() {
     super.initState();
+    // Clear previous transaction results first
+    context.read<PaymentBloc>().add(ClearTransactionEvent());
     // Start real payment process
     context.read<PaymentBloc>().add(ProcessPaymentEvent(
           amount: widget.amount.toDouble(),
@@ -84,69 +86,6 @@ class _CardInteractionScreenState extends State<CardInteractionScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    // Transaction Result
-                    if (state.lastTransaction != null)
-                      Padding(
-                        padding: const EdgeInsets.only(bottom: 16),
-                        child: BuildCard(
-                          color: state.lastTransaction!.isSuccess
-                              ? Colors.green.withOpacity(0.1)
-                              : colorScheme.errorContainer,
-                          child: Padding(
-                            padding: const EdgeInsets.all(16),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Row(
-                                  children: [
-                                    Icon(
-                                      state.lastTransaction!.isSuccess ? Icons.check_circle : Icons.error,
-                                      color: state.lastTransaction!.isSuccess ? Colors.green : colorScheme.error,
-                                      size: 32,
-                                    ),
-                                    const SizedBox(width: 12),
-                                    Expanded(
-                                      child: Column(
-                                        crossAxisAlignment: CrossAxisAlignment.start,
-                                        children: [
-                                          Text(
-                                            state.lastTransaction!.isSuccess ? 'Payment Successful' : 'Payment Failed',
-                                            style: theme.textTheme.titleMedium?.copyWith(
-                                              fontWeight: FontWeight.w600,
-                                              color:
-                                                  state.lastTransaction!.isSuccess ? Colors.green : colorScheme.error,
-                                            ),
-                                          ),
-                                          if (state.lastTransaction!.transactionId != null)
-                                            Text(
-                                              'ID: ${state.lastTransaction!.transactionId}',
-                                              style: theme.textTheme.bodySmall,
-                                            ),
-                                        ],
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                                if (state.lastTransaction!.isSuccess) ...[
-                                  const SizedBox(height: 16),
-                                  const Divider(),
-                                  const SizedBox(height: 16),
-                                  _buildTransactionDetail('Token', state.lastTransaction!.token ?? 'N/A'),
-                                  _buildTransactionDetail('Card Type', state.lastTransaction!.cardType ?? 'N/A'),
-                                  _buildTransactionDetail(
-                                      'Card Number', state.lastTransaction!.maskedCardNumber ?? 'N/A'),
-                                ],
-                              ],
-                            ),
-                          ),
-                        ),
-                      ),
-
-                    // Progress indicator for payment
-                    if (state.isProcessingPayment)
-                      const Center(
-                        child: CircularProgressIndicator(),
-                      ),
                     // Amount Display
                     Center(
                       child: Column(

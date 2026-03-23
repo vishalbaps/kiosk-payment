@@ -161,14 +161,19 @@ public class KioskPaymentPlugin: NSObject, FlutterPlugin, BMSSwiperControllerDel
         var status = "unknown"
         switch state {
         case .connected:
+            print("Swiper connected")
             status = "connected"
-            // Auto-cancel transaction to enter idle state
-            _ = cancelTransaction()
-        case .disconnected: status = "disconnected"
+            // Auto-cancel removed as it might be causing state flickers
+            // _ = cancelTransaction()
+        case .disconnected: 
+            print("Swiper disconnected")
+            status = "disconnected"
         case .connecting: status = "connecting"
         case .configuring: status = "configuring"
         case .searching: status = "searching"
-        @unknown default: status = "unknown"
+        @unknown default: 
+            print("Swiper unknown state: \(state.rawValue)")
+            status = "unknown"
         }
         
         if let sink = deviceStatusEventSink {

@@ -130,10 +130,19 @@ class KioskPaymentPlugin : FlutterPlugin, MethodCallHandler, ActivityAware {
             Log.d("KioskPaymentPlugin", "showDeviceMessage: message=${message.getMessage()}, state=$state")
 
             activity?.runOnUiThread {
-                Log.d("KioskPaymentPlugin", "Forwarding message: ${message.getMessage()} and state: $state")
-                displayMessageEventSink?.success(message.getMessage())
-                // Map state to status to help identify card interaction progress
-                updateStatus(state.toString().lowercase())
+                val msg = message.getMessage() ?: ""
+                Log.d("KioskPaymentPlugin", "Forwarding message: $msg")
+                displayMessageEventSink?.success(msg)
+                
+                // Map common messages to statuses
+                val lowerMsg = msg.lowercase()
+                if (lowerMsg.contains("swipe") || lowerMsg.contains("dip") || lowerMsg.contains("insert") || lowerMsg.contains("tap")) {
+                    updateStatus("ready_for_card")
+                } else if (lowerMsg.contains("processing") || lowerMsg.contains("reading") || lowerMsg.contains("wait")) {
+                    updateStatus("processing")
+                }
+                // We keep the old state update if it was actually useful, but based on logs it's not.
+                // updateStatus(state.toString().lowercase()) 
             }
         }
 
