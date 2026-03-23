@@ -100,37 +100,24 @@ class _CardInteractionScreenState extends State<CardInteractionScreen> {
                                 Row(
                                   children: [
                                     Icon(
-                                      state.lastTransaction!.isSuccess
-                                          ? Icons.check_circle
-                                          : Icons.error,
-                                      color: state.lastTransaction!.isSuccess
-                                          ? Colors.green
-                                          : colorScheme.error,
+                                      state.lastTransaction!.isSuccess ? Icons.check_circle : Icons.error,
+                                      color: state.lastTransaction!.isSuccess ? Colors.green : colorScheme.error,
                                       size: 32,
                                     ),
                                     const SizedBox(width: 12),
                                     Expanded(
                                       child: Column(
-                                        crossAxisAlignment:
-                                            CrossAxisAlignment.start,
+                                        crossAxisAlignment: CrossAxisAlignment.start,
                                         children: [
                                           Text(
-                                            state.lastTransaction!.isSuccess
-                                                ? 'Payment Successful'
-                                                : 'Payment Failed',
-                                            style: theme.textTheme.titleMedium
-                                                ?.copyWith(
+                                            state.lastTransaction!.isSuccess ? 'Payment Successful' : 'Payment Failed',
+                                            style: theme.textTheme.titleMedium?.copyWith(
                                               fontWeight: FontWeight.w600,
-                                              color: state
-                                                      .lastTransaction!
-                                                      .isSuccess
-                                                  ? Colors.green
-                                                  : colorScheme.error,
+                                              color:
+                                                  state.lastTransaction!.isSuccess ? Colors.green : colorScheme.error,
                                             ),
                                           ),
-                                          if (state.lastTransaction!
-                                                  .transactionId !=
-                                              null)
+                                          if (state.lastTransaction!.transactionId != null)
                                             Text(
                                               'ID: ${state.lastTransaction!.transactionId}',
                                               style: theme.textTheme.bodySmall,
@@ -144,15 +131,10 @@ class _CardInteractionScreenState extends State<CardInteractionScreen> {
                                   const SizedBox(height: 16),
                                   const Divider(),
                                   const SizedBox(height: 16),
-                                  _buildTransactionDetail('Token',
-                                      state.lastTransaction!.token ?? 'N/A'),
+                                  _buildTransactionDetail('Token', state.lastTransaction!.token ?? 'N/A'),
+                                  _buildTransactionDetail('Card Type', state.lastTransaction!.cardType ?? 'N/A'),
                                   _buildTransactionDetail(
-                                      'Card Type',
-                                      state.lastTransaction!.cardType ?? 'N/A'),
-                                  _buildTransactionDetail(
-                                      'Card Number',
-                                      state.lastTransaction!.maskedCardNumber ??
-                                          'N/A'),
+                                      'Card Number', state.lastTransaction!.maskedCardNumber ?? 'N/A'),
                                 ],
                               ],
                             ),
@@ -188,8 +170,7 @@ class _CardInteractionScreenState extends State<CardInteractionScreen> {
                     ),
                     const SizedBox(height: 48),
 
-                    if (state.displayMessage != null &&
-                        state.displayMessage!.isNotEmpty)
+                    if (state.displayMessage != null && state.displayMessage!.isNotEmpty)
                       Padding(
                         padding: const EdgeInsets.only(bottom: 16),
                         child: BuildCard(
@@ -198,8 +179,7 @@ class _CardInteractionScreenState extends State<CardInteractionScreen> {
                             padding: const EdgeInsets.all(16),
                             child: Row(
                               children: [
-                                Icon(Icons.info_outline,
-                                    color: colorScheme.primary),
+                                Icon(Icons.info_outline, color: colorScheme.primary),
                                 const SizedBox(width: 12),
                                 Expanded(
                                   child: Text(
@@ -226,8 +206,7 @@ class _CardInteractionScreenState extends State<CardInteractionScreen> {
                             padding: const EdgeInsets.all(16),
                             child: Row(
                               children: [
-                                Icon(Icons.error_outline,
-                                    color: colorScheme.error),
+                                Icon(Icons.error_outline, color: colorScheme.error),
                                 const SizedBox(width: 12),
                                 Expanded(
                                   child: Text(
@@ -294,6 +273,25 @@ class _CardInteractionScreenState extends State<CardInteractionScreen> {
                         ],
                       ),
                     ),
+
+                    if (state.lastTransaction != null) ...[
+                      const SizedBox(height: 32),
+                      SizedBox(
+                        width: double.infinity,
+                        height: 56,
+                        child: GradientButton(
+                          onPressed: () {
+                            Navigator.of(context).pop();
+                          },
+                          icon: Icons.home,
+                          label: 'Back to Menu',
+                          colors: [
+                            colorScheme.primary,
+                            colorScheme.primary.withOpacity(0.8),
+                          ],
+                        ),
+                      ),
+                    ],
                   ],
                 ),
               );

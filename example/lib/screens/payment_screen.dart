@@ -53,6 +53,8 @@ class _PaymentScreenState extends State<PaymentScreen> {
   Color _getStatusColor(DeviceStatus status, ColorScheme colorScheme) {
     switch (status) {
       case DeviceStatus.connected:
+      case DeviceStatus.readyForCard:
+      case DeviceStatus.processing:
         return Colors.green;
       case DeviceStatus.connecting:
         return Colors.orange;
@@ -117,12 +119,10 @@ class _PaymentScreenState extends State<PaymentScreen> {
                             Row(
                               children: [
                                 Icon(
-                                  state.connectionStatus == DeviceStatus.connected
+                                  _isConnected(state.connectionStatus)
                                       ? Icons.bluetooth_connected
                                       : Icons.bluetooth_disabled,
-                                  color: state.connectionStatus == DeviceStatus.connected
-                                      ? Colors.green
-                                      : colorScheme.outline,
+                                  color: _isConnected(state.connectionStatus) ? Colors.green : colorScheme.outline,
                                 ),
                                 const SizedBox(width: 12),
                                 Expanded(
@@ -143,9 +143,9 @@ class _PaymentScreenState extends State<PaymentScreen> {
                                           borderRadius: BorderRadius.circular(12),
                                         ),
                                         child: Text(
-                                          state.connectionStatus.name.toUpperCase(),
+                                          _getStatusString(state.connectionStatus).toUpperCase(),
                                           style: TextStyle(
-                                            color: state.connectionStatus == DeviceStatus.connected
+                                            color: _isConnected(state.connectionStatus)
                                                 ? Colors.white
                                                 : colorScheme.onSurfaceVariant,
                                             fontWeight: FontWeight.bold,
@@ -156,7 +156,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
                                     ],
                                   ),
                                 ),
-                                if (state.connectionStatus == DeviceStatus.connected)
+                                if (_isConnected(state.connectionStatus))
                                   ElevatedButton.icon(
                                     onPressed: () {
                                       context.read<PaymentBloc>().add(RestartReaderEvent());
@@ -176,59 +176,8 @@ class _PaymentScreenState extends State<PaymentScreen> {
                     ),
                     const SizedBox(height: 16),
 
-                    // Display Message from Device
-                    if (state.displayMessage != null && state.displayMessage!.isNotEmpty)
-                      Padding(
-                        padding: const EdgeInsets.only(bottom: 16),
-                        child: BuildCard(
-                          color: colorScheme.primaryContainer,
-                          child: Padding(
-                            padding: const EdgeInsets.all(16),
-                            child: Row(
-                              children: [
-                                Icon(Icons.info_outline, color: colorScheme.primary),
-                                const SizedBox(width: 12),
-                                Expanded(
-                                  child: Text(
-                                    state.displayMessage!,
-                                    style: TextStyle(
-                                      color: colorScheme.onPrimaryContainer,
-                                      fontWeight: FontWeight.w500,
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ),
-                      ),
-
-                    // Error Message
-                    if (state.errorMessage != null)
-                      Padding(
-                        padding: const EdgeInsets.only(bottom: 16),
-                        child: BuildCard(
-                          color: colorScheme.errorContainer,
-                          child: Padding(
-                            padding: const EdgeInsets.all(16),
-                            child: Row(
-                              children: [
-                                Icon(Icons.error_outline, color: colorScheme.error),
-                                const SizedBox(width: 12),
-                                Expanded(
-                                  child: Text(
-                                    state.errorMessage!,
-                                    style: TextStyle(color: colorScheme.error),
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ),
-                      ),
-
                     // Payment Form
-                    if (state.connectionStatus == DeviceStatus.connected)
+                    if (_isConnected(state.connectionStatus))
                       BuildCard(
                         child: Padding(
                           padding: const EdgeInsets.all(16),
@@ -319,87 +268,6 @@ class _PaymentScreenState extends State<PaymentScreen> {
                                   ),
                                 ],
                               ),
-                              /*const SizedBox(height: 20),
-                              ßSizedBox(
-                                width: double.infinity,
-                                height: 56,
-                                child: GradientButton(
-                                  onPressed: state.isProcessingPayment ? null : _processPayment,
-                                  icon: Icons.credit_card,
-                                  label: state.isProcessingPayment ? 'Processing...' : 'Process Payment',
-                                  colors: [
-                                    const Color(0xFF10B981), // Emerald
-                                    const Color(0xFF059669),
-                                  ],
-                                ),
-                              ),*/
-                            ],
-                          ),
-                        ),
-                      ),
-
-                    const SizedBox(height: 16),
-
-                    // Transaction Result
-                    if (state.lastTransaction != null)
-                      BuildCard(
-                        color: state.lastTransaction!.isSuccess
-                            ? Colors.green.withOpacity(0.1)
-                            : colorScheme.errorContainer,
-                        child: Padding(
-                          padding: const EdgeInsets.all(16),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Row(
-                                children: [
-                                  Icon(
-                                    state.lastTransaction!.isSuccess ? Icons.check_circle : Icons.error,
-                                    color: state.lastTransaction!.isSuccess ? Colors.green : colorScheme.error,
-                                    size: 32,
-                                  ),
-                                  const SizedBox(width: 12),
-                                  Expanded(
-                                    child: Column(
-                                      crossAxisAlignment: CrossAxisAlignment.start,
-                                      children: [
-                                        Text(
-                                          state.lastTransaction!.isSuccess ? 'Payment Successful' : 'Payment Failed',
-                                          style: theme.textTheme.titleMedium?.copyWith(
-                                            fontWeight: FontWeight.w600,
-                                            color: state.lastTransaction!.isSuccess ? Colors.green : colorScheme.error,
-                                          ),
-                                        ),
-                                        if (state.lastTransaction!.transactionId != null)
-                                          Text(
-                                            'ID: ${state.lastTransaction!.transactionId}',
-                                            style: theme.textTheme.bodySmall,
-                                          ),
-                                      ],
-                                    ),
-                                  ),
-                                ],
-                              ),
-                              if (state.lastTransaction!.isSuccess) ...[
-                                const SizedBox(height: 16),
-                                const Divider(),
-                                const SizedBox(height: 16),
-                                _buildTransactionDetail(context, 'Card Type', state.lastTransaction!.cardType ?? 'N/A'),
-                                _buildTransactionDetail(
-                                    context, 'Card Number', state.lastTransaction!.maskedCardNumber ?? 'N/A'),
-                                _buildTransactionDetail(context, 'Amount',
-                                    '${state.lastTransaction!.amount} ${state.lastTransaction!.currency}'),
-                                _buildTransactionDetail(
-                                    context, 'Auth Code', state.lastTransaction!.authorizationCode ?? 'N/A'),
-                              ],
-                              if (state.lastTransaction!.errorMessage != null)
-                                Padding(
-                                  padding: const EdgeInsets.only(top: 12),
-                                  child: Text(
-                                    'Error: ${state.lastTransaction!.errorMessage}',
-                                    style: TextStyle(color: colorScheme.error),
-                                  ),
-                                ),
                             ],
                           ),
                         ),
@@ -414,24 +282,30 @@ class _PaymentScreenState extends State<PaymentScreen> {
     );
   }
 
-  Widget _buildTransactionDetail(BuildContext context, String label, String value) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 4),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Text(
-            label,
-            style: TextStyle(
-              color: Theme.of(context).colorScheme.outline,
-            ),
-          ),
-          Text(
-            value,
-            style: const TextStyle(fontWeight: FontWeight.w600),
-          ),
-        ],
-      ),
-    );
+  bool _isConnected(DeviceStatus status) {
+    return status == DeviceStatus.connected ||
+        status == DeviceStatus.readyForCard ||
+        status == DeviceStatus.processing ||
+        status == DeviceStatus.cardRemoved ||
+        status == DeviceStatus.removeCardRequested ||
+        status == DeviceStatus.transactionCompleted;
+  }
+
+  String _getStatusString(DeviceStatus status) {
+    if (_isConnected(status)) return 'Connected';
+    switch (status) {
+      case DeviceStatus.disconnected:
+        return 'Disconnected';
+      case DeviceStatus.connecting:
+        return 'Connecting...';
+      case DeviceStatus.configuring:
+        return 'Configuring...';
+      case DeviceStatus.scanning:
+        return 'Scanning...';
+      case DeviceStatus.error:
+        return 'Error';
+      default:
+        return 'Unknown';
+    }
   }
 }
